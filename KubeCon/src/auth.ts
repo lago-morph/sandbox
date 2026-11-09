@@ -1,4 +1,5 @@
 import type { Env } from "./types";
+import { recordIdentity, type Provider } from "./identities";
 
 export const AUTHORIZE_URL = "https://dash.cloudflare.com/oauth2/auth";
 export const TOKEN_URL = "https://dash.cloudflare.com/oauth2/token";
@@ -9,8 +10,8 @@ const API = "https://api.cloudflare.com/client/v4";
 
 export const SESSION_COOKIE = "kp_session";
 export const OAUTH_COOKIE = "kp_oauth";
-const SESSION_TTL = 604800;
-const OAUTH_TTL = 600;
+export const SESSION_TTL = 604800;
+export const OAUTH_TTL = 600;
 
 const enc = new TextEncoder();
 
@@ -26,7 +27,7 @@ export function b64urlDecode(s: string): Uint8Array<ArrayBuffer> {
   return Uint8Array.from(bin, (c) => c.charCodeAt(0));
 }
 
-function randomB64url(n = 32): string {
+export function randomB64url(n = 32): string {
   return b64url(crypto.getRandomValues(new Uint8Array(n)));
 }
 
@@ -78,7 +79,7 @@ export function getCookie(req: Request, name: string): string | null {
   return null;
 }
 
-function cookie(name: string, value: string, maxAge: number, path = "/"): string {
+export function cookie(name: string, value: string, maxAge: number, path = "/"): string {
   return `${name}=${value}; HttpOnly; Secure; SameSite=Lax; Path=${path}; Max-Age=${maxAge}`;
 }
 
@@ -86,6 +87,41 @@ export interface SessionUser {
   uid: string;
   email: string;
   exp: number;
+  /** Sign-in provider; absent on cookies issued before Google sign-in existed (= cloudflare). */
+  prov?: Provider;
+}
+
+export interface OAuthState {
+  state: string;
+  verifier: string;
+  exp: number;
+  prov?: Provider;
+}
+
+/** Start an OAuth code + PKCE flow: returns the code challenge and the signed kp_oauth cookie value. */
+export async function startOAuth(env: Env, prov: Provider) {
+  const state = randomB64url();
+  const verifier = randomB64url();
+  const challenge = b64url(new Uint8Array(await crypto.subtle.digest("SHA-256", enc.encode(verifier))));
+  const oauth = await signToken({ state, verifier, prov, exp: Math.floor(Date.now() / 1000) + OAUTH_TTL }, env.SESSION_SECRET);
+  return { state, challenge, cookie: cookie(OAUTH_COOKIE, oauth, OAUTH_TTL, "/auth") };
+}
+
+/** Verify kp_oauth and the returned state for the given provider. Returns the PKCE verifier or null. */
+export async function checkOAuthState(req: Request, env: Env, prov: Provider): Promise<string | null> {
+  const oauth = await verifyToken<OAuthState>(getCookie(req, OAUTH_COOKIE), env.SESSION_SECRET);
+  const state = new URL(req.url).searchParams.get("state") ?? "";
+  if (!oauth || !state || (oauth.prov ?? "cloudflare") !== prov || !timingSafeEqual(state, oauth.state)) return null;
+  return oauth.verifier;
+}
+
+/** Successful sign-in: set kp_session, clear kp_oauth, redirect home. */
+export async function signedIn(env: Env, uid: string, email: string, prov: Provider): Promise<Response> {
+  const session = await signToken({ uid, email, prov, exp: Math.floor(Date.now() / 1000) + SESSION_TTL }, env.SESSION_SECRET);
+  const headers = new Headers({ location: "/", "cache-control": "no-store" });
+  headers.append("set-cookie", cookie(SESSION_COOKIE, session, SESSION_TTL));
+  headers.append("set-cookie", cookie(OAUTH_COOKIE, "", 0, "/auth"));
+  return new Response(null, { status: 302, headers });
 }
 
 export async function currentUser(req: Request, env: Env): Promise<SessionUser | null> {
@@ -98,10 +134,7 @@ export function redirectUri(req: Request): string {
 
 /** GET /auth/login (R-5.6). */
 export async function login(req: Request, env: Env): Promise<Response> {
-  const state = randomB64url();
-  const verifier = randomB64url();
-  const challenge = b64url(new Uint8Array(await crypto.subtle.digest("SHA-256", enc.encode(verifier))));
-  const oauth = await signToken({ state, verifier, exp: Math.floor(Date.now() / 1000) + OAUTH_TTL }, env.SESSION_SECRET);
+  const { state, challenge, cookie: oauthCookie } = await startOAuth(env, "cloudflare");
   const q = new URLSearchParams({
     response_type: "code",
     client_id: env.OAUTH_CLIENT_ID,
@@ -115,7 +148,7 @@ export async function login(req: Request, env: Env): Promise<Response> {
     status: 302,
     headers: {
       location: `${AUTHORIZE_URL}?${q.toString().replace(/\+/g, "%20")}`,
-      "set-cookie": cookie(OAUTH_COOKIE, oauth, OAUTH_TTL, "/auth"),
+      "set-cookie": oauthCookie,
       "cache-control": "no-store",
     },
   });
@@ -129,7 +162,7 @@ export function errorPage(status: number, message: string): Response {
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Sign-in problem</title><link rel="stylesheet" href="/styles.css"></head>
 <body><main class="center"><h1>Sign-in problem</h1><p>${escapeHtml(message)}</p>
-<p><a class="btn primary" href="/auth/login">Try again</a></p></main></body></html>`;
+<p><a class="btn primary" href="/">Try again</a></p></main></body></html>`;
   return new Response(html, {
     status,
     headers: {
@@ -179,10 +212,9 @@ export async function callback(req: Request, env: Env, fetchImpl: typeof fetch =
   const err = url.searchParams.get("error");
   if (err) return errorPage(400, `Cloudflare returned: ${err}${url.searchParams.get("error_description") ? ` (${url.searchParams.get("error_description")})` : ""}`);
 
-  const oauth = await verifyToken<{ state: string; verifier: string; exp: number }>(getCookie(req, OAUTH_COOKIE), env.SESSION_SECRET);
-  const state = url.searchParams.get("state") ?? "";
+  const verifier = await checkOAuthState(req, env, "cloudflare");
   const code = url.searchParams.get("code") ?? "";
-  if (!oauth || !state || !timingSafeEqual(state, oauth.state)) return errorPage(400, "The sign-in request expired or did not match. Please try again.");
+  if (!verifier) return errorPage(400, "The sign-in request expired or did not match. Please try again.");
   if (!code) return errorPage(400, "No authorization code was returned.");
 
   try {
@@ -195,7 +227,7 @@ export async function callback(req: Request, env: Env, fetchImpl: typeof fetch =
         redirect_uri: redirectUri(req),
         client_id: env.OAUTH_CLIENT_ID,
         client_secret: env.OAUTH_CLIENT_SECRET,
-        code_verifier: oauth.verifier,
+        code_verifier: verifier,
       }).toString(),
       redirect: "manual",
     });
@@ -217,11 +249,13 @@ export async function callback(req: Request, env: Env, fetchImpl: typeof fetch =
       return errorPage(403, "Not a member of this Cloudflare account");
     }
 
-    const session = await signToken({ uid, email, exp: Math.floor(Date.now() / 1000) + SESSION_TTL }, env.SESSION_SECRET);
-    const headers = new Headers({ location: "/", "cache-control": "no-store" });
-    headers.append("set-cookie", cookie(SESSION_COOKIE, session, SESSION_TTL));
-    headers.append("set-cookie", cookie(OAUTH_COOKIE, "", 0, "/auth"));
-    return new Response(null, { status: 302, headers });
+    // Remember this member's email so a Google sign-in with the same verified email maps to this user.
+    try {
+      await recordIdentity(env.DB, "cloudflare", uid, uid, email);
+    } catch {
+      // Not fatal for Cloudflare sign-in.
+    }
+    return signedIn(env, uid, email, "cloudflare");
   } catch {
     return errorPage(502, "Sign-in failed while talking to Cloudflare.");
   }

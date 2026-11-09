@@ -103,7 +103,7 @@ describe("auth", () => {
     expect(cookies.some((c) => c.startsWith("kp_oauth=;") && c.includes("Max-Age=0"))).toBe(true);
     // The session cookie authenticates /api/me.
     const me = await handleApi(new Request(`${ORIGIN}/api/me`, { headers: { cookie: session.split(";")[0] } }), env, new URL(`${ORIGIN}/api/me`));
-    expect(await me.json()).toEqual({ userId: "user-1", email: "owner@example.com" });
+    expect(await me.json()).toEqual({ userId: "user-1", email: "owner@example.com", provider: "cloudflare" });
   });
 
   it("allows an ALLOWED_EMAILS user without membership", async () => {

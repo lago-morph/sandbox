@@ -1,5 +1,7 @@
 import { callback, currentUser, login, logout } from "./auth";
 import { runImport } from "./importer";
+import { googleCallback, googleLogin } from "./google";
+import { recordIdentity } from "./identities";
 import type { Env } from "./types";
 
 export const SELECTION_STATUSES = new Set(["favorite", "interested"]);
@@ -47,7 +49,18 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
   }
 
   const path = url.pathname;
-  if (path === "/api/me" && req.method === "GET") return json({ userId: user.uid, email: user.email });
+  if (path === "/api/me" && req.method === "GET") {
+    // Backfill: remember Cloudflare members' emails (including sessions from before identities existed)
+    // so they can later sign in with Google using the same email.
+    if ((user.prov ?? "cloudflare") === "cloudflare" && user.email) {
+      try {
+        await recordIdentity(env.DB, "cloudflare", user.uid, user.uid, user.email);
+      } catch {
+        // Not fatal.
+      }
+    }
+    return json({ userId: user.uid, email: user.email, provider: user.prov ?? "cloudflare" });
+  }
 
   if (path === "/api/sessions" && req.method === "GET") {
     let sessions = await listSessions(env);
@@ -133,6 +146,8 @@ export default {
     if (url.pathname.startsWith("/api/")) return handleApi(req, env, url);
     if (url.pathname === "/auth/login" && req.method === "GET") return login(req, env);
     if (url.pathname === "/auth/callback" && req.method === "GET") return callback(req, env);
+    if (url.pathname === "/auth/google/login" && req.method === "GET") return googleLogin(req, env);
+    if (url.pathname === "/auth/google/callback" && req.method === "GET") return googleCallback(req, env);
     if (url.pathname === "/auth/logout" && (req.method === "GET" || req.method === "POST")) return logout();
     if (url.pathname.startsWith("/auth/")) return new Response("Not found", { status: 404 });
     return env.ASSETS.fetch(req);

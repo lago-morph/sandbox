@@ -33,4 +33,6 @@ export interface Env {
   SESSION_SECRET: string;
   ACCOUNT_ID: string;
   ALLOWED_EMAILS?: string;
+  GOOGLE_APP_ID: string;
+  GOOGLE_APP_SECRET: string;
 }

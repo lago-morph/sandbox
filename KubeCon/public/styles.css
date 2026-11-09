@@ -69,3 +69,4 @@ button, select, input { font: inherit; color: inherit; }
 .detail-marks { display: flex; gap: 8px; flex-wrap: wrap; }
 .block { padding-right: 34px; }
 .bcheck { position: absolute; top: 0; right: 0; width: 32px; height: 100%; max-height: 40px; border: 0; border-left: 1px solid var(--line); background: rgba(255,255,255,.35); font-size: 15px; font-weight: 700; cursor: pointer; color: var(--fg); padding: 0; }
+.signin-buttons { display: flex; flex-direction: column; gap: 12px; align-items: stretch; max-width: 320px; margin: 24px auto; }
