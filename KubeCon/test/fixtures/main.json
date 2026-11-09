@@ -1,22 +1,175 @@
 {
-  "sessions": [
-    { "id": "100", "title": "Tracing at Scale", "description": "How we trace.", "startsAt": "2026-11-10T10:00:00", "endsAt": "2026-11-10T10:30:00", "speakers": ["sp-a", "sp-b"], "categoryItems": [10], "roomId": 1 },
-    { "id": "101", "title": "ArgoCon (placeholder)", "description": null, "startsAt": "2026-11-09T09:00:00", "endsAt": "2026-11-09T17:00:00", "speakers": [], "categoryItems": [11], "roomId": 2 },
-    { "id": "102", "title": "Badge pickup", "description": null, "startsAt": "2026-11-08T08:00:00", "endsAt": "2026-11-08T17:00:00", "speakers": [], "categoryItems": [12], "roomId": 3 },
-    { "id": "103", "title": "No end time", "description": null, "startsAt": "2026-11-10T09:00:00", "endsAt": null, "speakers": [], "categoryItems": [10], "roomId": 1 },
-    { "id": 104, "title": "Late party", "description": "Fun.", "startsAt": "2026-11-10T22:00:00", "endsAt": "2026-11-11T01:00:00", "speakers": [], "categoryItems": [], "roomId": null },
-    { "id": "500", "title": "Sponsor Day (main copy)", "description": null, "startsAt": "2026-11-09T09:00:00", "endsAt": "2026-11-09T12:00:00", "speakers": [], "categoryItems": [14], "roomId": 1 },
-    { "id": "105", "title": "Lightning: tiny talk", "description": null, "startsAt": "2026-11-09T09:00:00", "endsAt": "2026-11-09T09:05:00", "speakers": [], "categoryItems": [13], "roomId": 1 }
-  ],
-  "speakers": [
-    { "id": "sp-a", "fullName": "Ada Lovelace", "tagLine": "Engineer at Analytical", "questionAnswers": [ { "questionId": 1, "answerValue": "Analytical Engines" }, { "questionId": 2, "answerValue": "Principal Engineer" } ] },
-    { "id": "sp-b", "fullName": "Grace Hopper", "tagLine": "Rear Admiral, US Navy", "questionAnswers": [] }
-  ],
-  "questions": [ { "id": 1, "question": "Company" }, { "id": 2, "question": "Speaker Title" } ],
-  "categories": [
-    { "id": 1, "title": "All Sessions", "items": [
-      { "id": 10, "name": "Observability" }, { "id": 11, "name": "CNCF-hosted Co-located Events" },
-      { "id": 12, "name": "Registration" }, { "id": 13, "name": "⚡ Lightning Talks" }, { "id": 14, "name": "Sponsor-hosted Co-located Events" } ] }
-  ],
-  "rooms": [ { "id": 1, "name": "Salt Palace | Level 1 | Grand Ballroom H" }, { "id": 2, "name": "Salt Palace | Level 2 | 250" }, { "id": 3, "name": "Salt Palace | Level 1 | Hall" } ]
+ "sessions": [
+  {
+   "id": "100",
+   "title": "Tracing at Scale",
+   "description": "How we trace.",
+   "startsAt": "2026-11-10T10:00:00",
+   "endsAt": "2026-11-10T10:30:00",
+   "speakers": [
+    "sp-a",
+    "sp-b"
+   ],
+   "categoryItems": [
+    10
+   ],
+   "roomId": 1,
+   "questionAnswers": [
+    {
+     "questionId": 3,
+     "answerValue": "https://sessionize.com/download/abc~slides.pdf"
+    }
+   ],
+   "recordingUrl": "https://www.youtube.com/watch?v=abc"
+  },
+  {
+   "id": "101",
+   "title": "ArgoCon (placeholder)",
+   "description": null,
+   "startsAt": "2026-11-09T09:00:00",
+   "endsAt": "2026-11-09T17:00:00",
+   "speakers": [],
+   "categoryItems": [
+    11
+   ],
+   "roomId": 2
+  },
+  {
+   "id": "102",
+   "title": "Badge pickup",
+   "description": null,
+   "startsAt": "2026-11-08T08:00:00",
+   "endsAt": "2026-11-08T17:00:00",
+   "speakers": [],
+   "categoryItems": [
+    12
+   ],
+   "roomId": 3
+  },
+  {
+   "id": "103",
+   "title": "No end time",
+   "description": null,
+   "startsAt": "2026-11-10T09:00:00",
+   "endsAt": null,
+   "speakers": [],
+   "categoryItems": [
+    10
+   ],
+   "roomId": 1
+  },
+  {
+   "id": 104,
+   "title": "Late party",
+   "description": "Fun.",
+   "startsAt": "2026-11-10T22:00:00",
+   "endsAt": "2026-11-11T01:00:00",
+   "speakers": [],
+   "categoryItems": [],
+   "roomId": null
+  },
+  {
+   "id": "500",
+   "title": "Sponsor Day (main copy)",
+   "description": null,
+   "startsAt": "2026-11-09T09:00:00",
+   "endsAt": "2026-11-09T12:00:00",
+   "speakers": [],
+   "categoryItems": [
+    14
+   ],
+   "roomId": 1
+  },
+  {
+   "id": "105",
+   "title": "Lightning: tiny talk",
+   "description": null,
+   "startsAt": "2026-11-09T09:00:00",
+   "endsAt": "2026-11-09T09:05:00",
+   "speakers": [],
+   "categoryItems": [
+    13
+   ],
+   "roomId": 1
+  }
+ ],
+ "speakers": [
+  {
+   "id": "sp-a",
+   "fullName": "Ada Lovelace",
+   "tagLine": "Engineer at Analytical",
+   "questionAnswers": [
+    {
+     "questionId": 1,
+     "answerValue": "Analytical Engines"
+    },
+    {
+     "questionId": 2,
+     "answerValue": "Principal Engineer"
+    }
+   ]
+  },
+  {
+   "id": "sp-b",
+   "fullName": "Grace Hopper",
+   "tagLine": "Rear Admiral, US Navy",
+   "questionAnswers": []
+  }
+ ],
+ "questions": [
+  {
+   "id": 1,
+   "question": "Company"
+  },
+  {
+   "id": 2,
+   "question": "Speaker Title"
+  },
+  {
+   "id": 3,
+   "question": "Presentation Slides"
+  }
+ ],
+ "categories": [
+  {
+   "id": 1,
+   "title": "All Sessions",
+   "items": [
+    {
+     "id": 10,
+     "name": "Observability"
+    },
+    {
+     "id": 11,
+     "name": "CNCF-hosted Co-located Events"
+    },
+    {
+     "id": 12,
+     "name": "Registration"
+    },
+    {
+     "id": 13,
+     "name": "⚡ Lightning Talks"
+    },
+    {
+     "id": 14,
+     "name": "Sponsor-hosted Co-located Events"
+    }
+   ]
+  }
+ ],
+ "rooms": [
+  {
+   "id": 1,
+   "name": "Salt Palace | Level 1 | Grand Ballroom H"
+  },
+  {
+   "id": 2,
+   "name": "Salt Palace | Level 2 | 250"
+  },
+  {
+   "id": 3,
+   "name": "Salt Palace | Level 1 | Hall"
+  }
+ ]
 }

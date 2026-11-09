@@ -1,17 +1,154 @@
 {
-  "sessions": [
-    { "id": "200", "title": "GitOps in Anger", "description": "Argo things.", "startsAt": "2026-11-09T09:30:00", "endsAt": "2026-11-09T10:00:00", "speakers": ["sp-c"], "categoryItems": [31, 20], "roomId": 7 },
-    { "id": "201", "title": "Coffee Break", "description": null, "startsAt": "2026-11-09T10:00:00", "endsAt": "2026-11-09T10:30:00", "speakers": [], "categoryItems": [20, 21, 22], "roomId": 8 },
-    { "id": "202", "title": "Co-located Registration", "description": null, "startsAt": "2026-11-09T07:30:00", "endsAt": "2026-11-09T17:00:00", "speakers": [], "categoryItems": [23], "roomId": 8 },
-    { "id": "203", "title": "Lightning: OTel", "description": null, "startsAt": "2026-11-09T11:00:00", "endsAt": "2026-11-09T11:10:00", "speakers": [], "categoryItems": [21, 30], "roomId": 7 }
-  ],
-  "speakers": [ { "id": "sp-c", "fullName": "Linus Pauling", "tagLine": "", "questionAnswers": [ { "questionId": 5, "answerValue": "Intuit" }, { "questionId": 6, "answerValue": "Staff Engineer" } ] } ],
-  "questions": [ { "id": 5, "question": "Company" }, { "id": 6, "question": "Speaker Title" } ],
-  "categories": [
-    { "id": 2, "title": "ArgoCon Topics", "items": [ { "id": 50, "name": "GitOps" } ] },
-    { "id": 3, "title": "Session format", "items": [ { "id": 30, "name": "⚡ Lightning Talk" }, { "id": 31, "name": "Breakout Session" } ] },
-    { "id": 4, "title": "All Sessions", "items": [
-      { "id": 20, "name": "ArgoCon" }, { "id": 21, "name": "Observability Day" }, { "id": 22, "name": "☕ Breaks" }, { "id": 23, "name": "Registration" } ] }
-  ],
-  "rooms": [ { "id": 7, "name": "Salt Palace | Level 2 | 255" }, { "id": 8, "name": "Salt Palace | Level 2 | Foyer" } ]
+ "sessions": [
+  {
+   "id": "200",
+   "title": "GitOps in Anger",
+   "description": "Argo things.",
+   "startsAt": "2026-11-09T09:30:00",
+   "endsAt": "2026-11-09T10:00:00",
+   "speakers": [
+    "sp-c"
+   ],
+   "categoryItems": [
+    31,
+    20
+   ],
+   "roomId": 7,
+   "questionAnswers": [
+    {
+     "questionId": 9,
+     "answerValue": "javascript:alert(1)"
+    }
+   ],
+   "recordingUrl": "http://insecure.example/video"
+  },
+  {
+   "id": "201",
+   "title": "Coffee Break",
+   "description": null,
+   "startsAt": "2026-11-09T10:00:00",
+   "endsAt": "2026-11-09T10:30:00",
+   "speakers": [],
+   "categoryItems": [
+    20,
+    21,
+    22
+   ],
+   "roomId": 8
+  },
+  {
+   "id": "202",
+   "title": "Co-located Registration",
+   "description": null,
+   "startsAt": "2026-11-09T07:30:00",
+   "endsAt": "2026-11-09T17:00:00",
+   "speakers": [],
+   "categoryItems": [
+    23
+   ],
+   "roomId": 8
+  },
+  {
+   "id": "203",
+   "title": "Lightning: OTel",
+   "description": null,
+   "startsAt": "2026-11-09T11:00:00",
+   "endsAt": "2026-11-09T11:10:00",
+   "speakers": [],
+   "categoryItems": [
+    21,
+    30
+   ],
+   "roomId": 7
+  }
+ ],
+ "speakers": [
+  {
+   "id": "sp-c",
+   "fullName": "Linus Pauling",
+   "tagLine": "",
+   "questionAnswers": [
+    {
+     "questionId": 5,
+     "answerValue": "Intuit"
+    },
+    {
+     "questionId": 6,
+     "answerValue": "Staff Engineer"
+    }
+   ]
+  }
+ ],
+ "questions": [
+  {
+   "id": 5,
+   "question": "Company"
+  },
+  {
+   "id": 6,
+   "question": "Speaker Title"
+  },
+  {
+   "id": 9,
+   "question": "Presentation Slides"
+  }
+ ],
+ "categories": [
+  {
+   "id": 2,
+   "title": "ArgoCon Topics",
+   "items": [
+    {
+     "id": 50,
+     "name": "GitOps"
+    }
+   ]
+  },
+  {
+   "id": 3,
+   "title": "Session format",
+   "items": [
+    {
+     "id": 30,
+     "name": "⚡ Lightning Talk"
+    },
+    {
+     "id": 31,
+     "name": "Breakout Session"
+    }
+   ]
+  },
+  {
+   "id": 4,
+   "title": "All Sessions",
+   "items": [
+    {
+     "id": 20,
+     "name": "ArgoCon"
+    },
+    {
+     "id": 21,
+     "name": "Observability Day"
+    },
+    {
+     "id": 22,
+     "name": "☕ Breaks"
+    },
+    {
+     "id": 23,
+     "name": "Registration"
+    }
+   ]
+  }
+ ],
+ "rooms": [
+  {
+   "id": 7,
+   "name": "Salt Palace | Level 2 | 255"
+  },
+  {
+   "id": 8,
+   "name": "Salt Palace | Level 2 | Foyer"
+  }
+ ]
 }

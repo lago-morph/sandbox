@@ -13,7 +13,7 @@ console.log("Stored SESSION_SECRET as a Worker secret");
 
 if (process.argv.includes("--import")) {
   const b64u = (b) => Buffer.from(b).toString("base64url");
-  const payload = b64u(JSON.stringify({ uid: "setup-import", email: "", exp: Math.floor(Date.now() / 1000) + 120 }));
+  const payload = b64u(JSON.stringify({ typ: "session", uid: "setup-import", email: "", prov: "cloudflare", exp: Math.floor(Date.now() / 1000) + 120 }));
   const cookie = `kp_session=${payload}.${createHmac("sha256", secret).update(payload).digest("base64url")}`;
   for (let i = 0; i < 6; i++) {
     const res = await fetch(`${ORIGIN}/api/import`, { method: "POST", headers: { cookie, origin: ORIGIN } });

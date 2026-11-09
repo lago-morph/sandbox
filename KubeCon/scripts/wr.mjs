@@ -22,13 +22,35 @@ export function wrangler(args, { stdin, quiet = false } = {}) {
       stdio: ["pipe", "pipe", "pipe"],
     });
     let out = "";
-    const onData = (stream, keep) => (buf) => {
-      const t = redact(buf.toString());
-      if (keep) out += t; // resolve with stdout only
-      if (!quiet) stream.write(t);
+    // Redact whole lines only, so a secret split across two output chunks is still caught.
+    const onData = (stream, keep) => {
+      let pending = "";
+      const emit = (text) => {
+        const t = redact(text);
+        if (keep) out += t; // resolve with stdout only
+        if (!quiet) stream.write(t);
+      };
+      return {
+        data: (buf) => {
+          pending += buf.toString();
+          const cut = pending.lastIndexOf("\n");
+          if (cut >= 0) {
+            emit(pending.slice(0, cut + 1));
+            pending = pending.slice(cut + 1);
+          }
+        },
+        end: () => {
+          if (pending) emit(pending);
+          pending = "";
+        },
+      };
     };
-    child.stdout.on("data", onData(process.stdout, true));
-    child.stderr.on("data", onData(process.stderr, false));
+    const so = onData(process.stdout, true);
+    const se = onData(process.stderr, false);
+    child.stdout.on("data", so.data);
+    child.stderr.on("data", se.data);
+    child.stdout.on("end", so.end);
+    child.stderr.on("end", se.end);
     if (stdin != null) child.stdin.end(stdin);
     else child.stdin.end();
     child.on("error", reject);

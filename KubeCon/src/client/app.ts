@@ -3,8 +3,23 @@ import { layoutDay } from "../layout";
 interface S {
   id: string; source: string; title: string; day: string; startsAt: string; endsAt: string;
   room: string; track: string; format: string | null; events: string[]; speakerText: string;
+  /** The session has a slide download (shown as a dot next to the time). */
+  hasSlides?: boolean;
 }
-interface Full extends S { description: string; speakers: { name: string; company: string; title: string }[] }
+
+const slidesDot = (s: S) => (s.hasSlides ? `<span class="slides-dot" title="Slides available" aria-label="Slides available"></span>` : "");
+interface Full extends S {
+  description: string;
+  speakers: { name: string; company: string; title: string }[];
+  slidesUrl?: string;
+  recordingUrl?: string;
+}
+
+/** An external link, only for https URLs (the server already filters, this is a second check). */
+function extLink(url: string | undefined, label: string): string {
+  if (!url || !/^https:\/\//i.test(url)) return "";
+  return `<a class="btn" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${label}</a>`;
+}
 
 const DAYS = [
   ["2026-11-08", "Sun 8"], ["2026-11-09", "Mon 9"], ["2026-11-10", "Tue 10"], ["2026-11-11", "Wed 11"], ["2026-11-12", "Thu 12"],
@@ -14,7 +29,8 @@ const PX_PER_MIN = 1.3;
 const $ = <T = HTMLElement>(id: string) => document.getElementById(id) as unknown as T;
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 /** HH:MM straight from the local wall-clock string (never via Date, R-2.3). */
-const hm = (t: string) => t.slice(11, 16);
+// Escaped: these strings come from the third-party feed and are inserted as HTML.
+const hm = (t: string) => esc(t.slice(11, 16));
 
 let sessions: S[] = [];
 const byId = new Map<string, S>();
@@ -101,10 +117,10 @@ function renderList() {
   const shown = rows.slice(0, 400);
   $("list").innerHTML = shown.map((s) => {
     const m = marks.get(s.id);
-    const dayLabel = all ? `${DAYS.find(([k]) => k === s.day)?.[1] ?? s.day} ` : "";
+    const dayLabel = all ? `${esc(DAYS.find(([k]) => k === s.day)?.[1] ?? s.day)} ` : "";
     return `<li class="item${m === "favorite" ? " sel" : m === "interested" ? " int" : ""}" data-id="${esc(s.id)}">
       <div class="body" data-open="${esc(s.id)}">
-        <div class="time">${dayLabel}${hm(s.startsAt)}–${hm(s.endsAt)}</div>
+        <div class="time">${dayLabel}${hm(s.startsAt)}–${hm(s.endsAt)}${slidesDot(s)}</div>
         <div class="title">${esc(s.title)}</div>
         <div class="sub">${esc(sub(s))}</div>
         ${s.speakerText ? `<div class="sub">${esc(s.speakerText)}</div>` : ""}
@@ -156,7 +172,7 @@ function renderGrid() {
     const short = h < 40; // one line: time, badge, truncated title
     html += `<div class="block${conflict ? " conflict" : ""}${short ? " short" : ""}" data-open="${esc(s.id)}"
       style="top:${(b.start - lo) * PX_PER_MIN}px;height:${h}px;left:${(b.col / b.cols) * 100}%;width:${100 / b.cols}%">
-      <div class="bh">${hm(s.startsAt)}${conflict ? ` <span class="badge">Conflict</span>` : ""}</div>
+      <div class="bh">${hm(s.startsAt)}${slidesDot(s)}${conflict ? ` <span class="badge">Conflict</span>` : ""}</div>
       <div class="bt">${esc(s.title)}</div>
       <button class="bcheck" data-mark="interested" data-id="${esc(s.id)}" aria-label="Move to interested (watch later)">✓</button></div>`;
   }
@@ -206,7 +222,7 @@ async function openDetail(id: string) {
   const s = byId.get(id);
   if (!s) return;
   openId = id;
-  const dayLabel = DAYS.find(([k]) => k === s.day)?.[1] ?? s.day;
+  const dayLabel = esc(DAYS.find(([k]) => k === s.day)?.[1] ?? s.day);
   const head = `<h2>${esc(s.title)}</h2>
     <dl><dt>When</dt><dd>${dayLabel}, ${hm(s.startsAt)}–${hm(s.endsAt)} (Salt Lake City)</dd>
     <dt>Room</dt><dd>${esc(s.room || "TBA")}</dd>
@@ -225,7 +241,9 @@ async function openDetail(id: string) {
     const sp = f.speakers.length
       ? `<h3>Speakers</h3><ul>${f.speakers.map((x) => `<li><strong>${esc(x.name)}</strong>${x.company || x.title ? `<br><span class="meta">${esc([x.title, x.company].filter(Boolean).join(", "))}</span>` : ""}</li>`).join("")}</ul>`
       : "";
-    $("detail-body").innerHTML = head + (f.description ? `<p class="desc">${esc(f.description)}</p>` : "") + sp;
+    const links = [extLink(f.slidesUrl, "⬇ Slides"), extLink(f.recordingUrl, "▶ Recording")].filter(Boolean).join(" ");
+    $("detail-body").innerHTML = head + (links ? `<p class="detail-links">${links}</p>` : "") +
+      (f.description ? `<p class="desc">${esc(f.description)}</p>` : "") + sp;
     renderDetailToggle();
   } catch {
     if (openId === id) $("detail-body").innerHTML = head + `<p class="meta">Could not load details.</p>`;
@@ -296,6 +314,28 @@ function wire() {
   $("refresh").addEventListener("click", refresh);
 }
 
+/**
+ * Activity ping: tell the server the user did something (not what), at most once a minute.
+ * Browsing happens in the browser without server calls, so without this a returning user who only
+ * browses would never be counted.
+ */
+const PING_EVERY_MS = 60_000;
+let lastPing = 0;
+function ping() {
+  const now = Date.now();
+  if (now - lastPing < PING_EVERY_MS) return;
+  lastPing = now;
+  fetch("/api/ping", { method: "POST", credentials: "same-origin", keepalive: true }).catch(() => {});
+}
+function wireActivity() {
+  for (const ev of ["pointerdown", "keydown", "scroll", "input"]) {
+    window.addEventListener(ev, ping, { passive: true, capture: true });
+  }
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") ping();
+  });
+}
+
 async function main() {
   wire();
   let me: { email: string };
@@ -304,6 +344,8 @@ async function main() {
     if (res.status === 401) return showSignIn();
     me = await res.json();
   } catch { return showSignIn(); }
+  lastPing = Date.now(); // this page load's API calls already record activity
+  wireActivity();
   $("email").textContent = me.email || "Signed in";
   $("who").hidden = false;
   $("app").hidden = false;

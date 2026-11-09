@@ -107,13 +107,13 @@ export async function startOAuth(env: Env, prov: Provider, next = "/") {
   const state = randomB64url();
   const verifier = randomB64url();
   const challenge = b64url(new Uint8Array(await crypto.subtle.digest("SHA-256", enc.encode(verifier))));
-  const oauth = await signToken({ state, verifier, prov, next: AFTER_LOGIN.has(next) ? next : "/", exp: Math.floor(Date.now() / 1000) + OAUTH_TTL }, env.SESSION_SECRET);
+  const oauth = await signToken({ typ: "oauth", state, verifier, prov, next: AFTER_LOGIN.has(next) ? next : "/", exp: Math.floor(Date.now() / 1000) + OAUTH_TTL }, env.SESSION_SECRET);
   return { state, challenge, cookie: cookie(OAUTH_COOKIE, oauth, OAUTH_TTL, "/auth") };
 }
 
 /** Verify kp_oauth and the returned state for the given provider. Returns the PKCE verifier or null. */
 export async function checkOAuthState(req: Request, env: Env, prov: Provider): Promise<string | null> {
-  const oauth = await verifyToken<OAuthState>(getCookie(req, OAUTH_COOKIE), env.SESSION_SECRET);
+  const oauth = await readOAuth(req, env);
   const state = new URL(req.url).searchParams.get("state") ?? "";
   if (!oauth || !state || (oauth.prov ?? "cloudflare") !== prov || !timingSafeEqual(state, oauth.state)) return null;
   return oauth.verifier;
@@ -121,21 +121,42 @@ export async function checkOAuthState(req: Request, env: Env, prov: Provider): P
 
 /** Where the in-progress sign-in should return to ("/" unless an allowed `next` was requested). */
 export async function oauthNext(req: Request, env: Env): Promise<string> {
-  const oauth = await verifyToken<OAuthState>(getCookie(req, OAUTH_COOKIE), env.SESSION_SECRET);
+  const oauth = await readOAuth(req, env);
   return oauth?.next && AFTER_LOGIN.has(oauth.next) ? oauth.next : "/";
 }
 
 /** Successful sign-in: set kp_session, clear kp_oauth, redirect to `next` (default home). */
 export async function signedIn(env: Env, uid: string, email: string, prov: Provider, next = "/"): Promise<Response> {
-  const session = await signToken({ uid, email, prov, exp: Math.floor(Date.now() / 1000) + SESSION_TTL }, env.SESSION_SECRET);
+  const session = await signToken({ typ: "session", uid, email, prov, exp: Math.floor(Date.now() / 1000) + SESSION_TTL }, env.SESSION_SECRET);
   const headers = new Headers({ location: AFTER_LOGIN.has(next) ? next : "/", "cache-control": "no-store" });
   headers.append("set-cookie", cookie(SESSION_COOKIE, session, SESSION_TTL));
   headers.append("set-cookie", cookie(OAUTH_COOKIE, "", 0, "/auth"));
   return new Response(null, { status: 302, headers });
 }
 
+/**
+ * The signed-in user, or null. kp_oauth and kp_session are signed with the same key, so the token
+ * type is checked: an OAuth state token (which anyone can obtain from /auth/login) must never be
+ * accepted as a session. Session tokens issued before `typ` existed have no `typ` but always a uid.
+ */
 export async function currentUser(req: Request, env: Env): Promise<SessionUser | null> {
-  return verifyToken<SessionUser>(getCookie(req, SESSION_COOKIE), env.SESSION_SECRET);
+  const s = await verifyToken<SessionUser & { typ?: string }>(getCookie(req, SESSION_COOKIE), env.SESSION_SECRET);
+  if (!s) return null;
+  if (s.typ !== undefined && s.typ !== "session") return null;
+  if (typeof s.uid !== "string" || !s.uid) return null;
+  if (s.prov !== undefined && s.prov !== "cloudflare" && s.prov !== "google") return null;
+  // Each provider has its own user-id namespace (Google users are "google:<sub>"), so a token
+  // can never pair one provider with another provider's user id.
+  if (((s.prov ?? "cloudflare") === "google") !== s.uid.startsWith("google:")) return null;
+  return s;
+}
+
+/** The in-progress OAuth state, never a session token used in its place. */
+async function readOAuth(req: Request, env: Env): Promise<OAuthState | null> {
+  const o = await verifyToken<OAuthState & { typ?: string; uid?: unknown }>(getCookie(req, OAUTH_COOKIE), env.SESSION_SECRET);
+  if (!o || o.typ === "session" || o.uid !== undefined) return null;
+  if (typeof o.state !== "string" || typeof o.verifier !== "string") return null;
+  return o;
 }
 
 export function redirectUri(req: Request): string {
@@ -167,6 +188,12 @@ export async function login(req: Request, env: Env): Promise<Response> {
 
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+}
+
+/** Fixed text for an OAuth error redirect; only a standard error code is shown, never free text. */
+export function oauthErrorMessage(provider: string, code: string): string {
+  const c = /^[a-z_]{1,40}$/.test(code) ? ` (${code})` : "";
+  return `Sign-in with ${provider} was cancelled or did not complete${c}.`;
 }
 
 export function errorPage(status: number, message: string): Response {
@@ -221,7 +248,7 @@ export async function isAllowed(env: Env, email: string, accessToken: string, fe
 export async function callback(req: Request, env: Env, fetchImpl: typeof fetch = fetch): Promise<Response> {
   const url = new URL(req.url);
   const err = url.searchParams.get("error");
-  if (err) return errorPage(400, `Cloudflare returned: ${err}${url.searchParams.get("error_description") ? ` (${url.searchParams.get("error_description")})` : ""}`);
+  if (err) return errorPage(400, oauthErrorMessage("Cloudflare", err));
 
   const verifier = await checkOAuthState(req, env, "cloudflare");
   const code = url.searchParams.get("code") ?? "";

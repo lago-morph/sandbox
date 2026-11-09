@@ -20,10 +20,14 @@ export interface Session {
   events: string[];
   speakers: Speaker[];
   speakerText: string;
+  /** https link to the slide download, or "". */
+  slidesUrl: string;
+  /** https link to the recording, or "". */
+  recordingUrl: string;
 }
 
 /** List view: everything except description and the structured speakers. */
-export type SessionSummary = Omit<Session, "description" | "speakers">;
+export type SessionSummary = Omit<Session, "description" | "speakers" | "slidesUrl" | "recordingUrl">;
 
 export interface Env {
   DB: D1Database;

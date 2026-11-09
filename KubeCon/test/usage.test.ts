@@ -57,6 +57,20 @@ describe("touchUser", () => {
     const cookie = `kp_session=${await signToken({ uid: "google:1", email: "", prov: "google", exp: Math.floor(Date.now() / 1000) + 60 }, SECRET)}`;
     await handleApi(new Request(`${ORIGIN}/api/me`, { headers: { cookie } }), env, new URL(`${ORIGIN}/api/me`));
     expect(raw.prepare("SELECT user_id, provider, visits FROM users").all()).toEqual([{ user_id: "google:1", provider: "google", visits: 1 }]);
+    expect(raw.prepare("SELECT user_id FROM activity").all()).toEqual([{ user_id: "google:1" }]);
+  });
+
+  it("accepts the activity ping (POST with matching Origin) and logs who and when only", async () => {
+    const { d1, raw } = sqliteD1();
+    const env = { SESSION_SECRET: SECRET, DB: d1 } as Env;
+    const cookie = `kp_session=${await signToken({ typ: "session", uid: "cf-1", email: "", prov: "cloudflare", exp: Math.floor(Date.now() / 1000) + 60 }, SECRET)}`;
+    const ping = (origin: string) =>
+      handleApi(new Request(`${ORIGIN}/api/ping`, { method: "POST", headers: { cookie, origin } }), env, new URL(`${ORIGIN}/api/ping`));
+    expect((await ping(ORIGIN)).status).toBe(204);
+    expect((await ping("https://evil.example")).status).toBe(403);
+    expect(raw.prepare("PRAGMA table_info(activity)").all().map((c: any) => c.name)).toEqual(["user_id", "at_ms"]);
+    expect((raw.prepare("SELECT COUNT(*) AS n FROM activity").get() as any).n).toBeGreaterThanOrEqual(1);
+    expect((await handleApi(new Request(`${ORIGIN}/api/ping`, { method: "POST", headers: { origin: ORIGIN } }), env, new URL(`${ORIGIN}/api/ping`))).status).toBe(401);
   });
 });
 
@@ -65,7 +79,7 @@ describe("/admin", () => {
     const { d1 } = sqliteD1();
     const env = { SESSION_SECRET: SECRET, DB: d1, OAUTH_CLIENT_ID: "cf", ASSETS: { fetch: async () => new Response("x") } } as unknown as Env;
     const cookieFor = async (prov?: string) =>
-      `kp_session=${await signToken({ uid: "u1", email: "", ...(prov ? { prov } : {}), exp: Math.floor(Date.now() / 1000) + 60 }, SECRET)}`;
+      `kp_session=${await signToken({ uid: prov === "google" ? "google:u1" : "u1", email: "", ...(prov ? { prov } : {}), exp: Math.floor(Date.now() / 1000) + 60 }, SECRET)}`;
     const get = (cookie?: string) => worker.fetch(new Request(`${ORIGIN}/admin`, { headers: cookie ? { cookie } : {} }), env);
     return { d1, env, cookieFor, get };
   }
