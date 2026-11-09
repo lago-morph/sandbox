@@ -111,8 +111,8 @@ describe("storeSessions", () => {
 
   it("upserts by id, reports counts, and never touches selections", async () => {
     const db = new FakeD1();
-    db.selections.set("u1|100", { user_id: "u1", session_id: "100", created_at: "x" });
-    db.selections.set("u1|gone", { user_id: "u1", session_id: "gone", created_at: "x" });
+    db.selections.set("u1|100", { user_id: "u1", session_id: "100", status: "favorite", created_at: "x" });
+    db.selections.set("u1|gone", { user_id: "u1", session_id: "gone", status: "interested", created_at: "x" });
     const merged = mergeFeeds(all());
     const r1 = await storeSessions(db as any, merged);
     expect(r1).toEqual({ added: merged.length, updated: 0, removed: 0, total: merged.length });

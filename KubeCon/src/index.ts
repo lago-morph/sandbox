@@ -2,6 +2,11 @@ import { callback, currentUser, login, logout } from "./auth";
 import { runImport } from "./importer";
 import type { Env } from "./types";
 
+export const SELECTION_STATUSES = new Set(["favorite", "interested"]);
+export const UPSERT_SELECTION_SQL =
+  "INSERT INTO selections (user_id, session_id, status, created_at) VALUES (?, ?, ?, ?) " +
+  "ON CONFLICT(user_id, session_id) DO UPDATE SET status = excluded.status";
+
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
@@ -88,21 +93,29 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
   }
 
   if (path === "/api/selections" && req.method === "GET") {
-    const { results } = await env.DB.prepare("SELECT session_id FROM selections WHERE user_id = ? ORDER BY created_at")
+    const { results } = await env.DB.prepare("SELECT session_id, status FROM selections WHERE user_id = ? ORDER BY created_at")
       .bind(user.uid)
-      .all<{ session_id: string }>();
-    return json((results ?? []).map((r) => r.session_id));
+      .all<{ session_id: string; status: string }>();
+    return json((results ?? []).map((r) => ({ id: r.session_id, status: r.status })));
   }
 
   const sel = path.match(/^\/api\/selections\/([^/]+)$/);
   if (sel) {
     const id = decodeURIComponent(sel[1]);
     if (req.method === "PUT") {
+      let status = "favorite";
+      const text = await req.text();
+      if (text) {
+        try {
+          status = (JSON.parse(text) as { status?: string }).status ?? "favorite";
+        } catch {
+          return json({ error: "invalid JSON body" }, 400);
+        }
+      }
+      if (!SELECTION_STATUSES.has(status)) return json({ error: "status must be favorite or interested" }, 400);
       const exists = await env.DB.prepare("SELECT 1 AS x FROM sessions WHERE id = ?").bind(id).first();
       if (!exists) return json({ error: "unknown session" }, 404);
-      await env.DB.prepare("INSERT OR IGNORE INTO selections (user_id, session_id, created_at) VALUES (?, ?, ?)")
-        .bind(user.uid, id, new Date().toISOString())
-        .run();
+      await env.DB.prepare(UPSERT_SELECTION_SQL).bind(user.uid, id, status, new Date().toISOString()).run();
       return new Response(null, { status: 204 });
     }
     if (req.method === "DELETE") {

@@ -1,10 +1,10 @@
 :root {
   --bg: #f6f7f9; --fg: #111827; --muted: #6b7280; --card: #fff; --line: #e5e7eb;
-  --accent: #f38020; --accent-fg: #fff; --sel: #fff4e8; --conflict: #dc2626; --block: #dbeafe; --block-line: #3b82f6;
+  --accent: #f38020; --accent-fg: #fff; --int: #ecfdf5; --int-line: #059669; --sel: #fff4e8; --conflict: #dc2626; --block: #dbeafe; --block-line: #3b82f6;
 }
 @media (prefers-color-scheme: dark) {
   :root { --bg: #0f1115; --fg: #e5e7eb; --muted: #9ca3af; --card: #1a1d23; --line: #2d323b;
-          --sel: #3a2a17; --block: #1e3a5f; --block-line: #60a5fa; }
+          --sel: #3a2a17; --block: #1e3a5f; --block-line: #60a5fa; --int: #0f2e25; --int-line: #10b981; }
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
@@ -38,7 +38,8 @@ button, select, input { font: inherit; color: inherit; }
 .item .time { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 13px; }
 .item .title { font-weight: 600; overflow-wrap: anywhere; }
 .item .sub { color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
-.toggle { flex: none; width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: var(--card); font-size: 20px; cursor: pointer; align-self: center; }
+.marks { flex: none; display: flex; flex-direction: column; gap: 6px; align-self: center; }
+.toggle { flex: none; width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: var(--card); font-size: 20px; cursor: pointer; }
 .toggle.on { background: var(--accent); color: #fff; border-color: var(--accent); }
 .foot { color: var(--muted); font-size: 13px; padding: 8px 12px 40px; }
 .grid { position: relative; margin: 8px 8px 0 46px; }
@@ -62,3 +63,10 @@ button, select, input { font: inherit; color: inherit; }
 .block.short { display: flex; gap: 4px; align-items: center; padding-top: 0; padding-bottom: 0; }
 .block.short .bh { flex: none; }
 .block.short .bt { display: block; flex: 1; min-width: 0; white-space: nowrap; text-overflow: ellipsis; }
+.toggle.check { font-size: 18px; font-weight: 700; }
+.toggle.check.on { background: var(--int-line); border-color: var(--int-line); color: #fff; }
+.item.int { background: var(--int); border-color: var(--int-line); }
+.section { font-size: 15px; margin: 16px 12px 0; }
+.detail-marks { display: flex; gap: 8px; flex-wrap: wrap; }
+.block { padding-right: 34px; }
+.bcheck { position: absolute; top: 0; right: 0; width: 32px; height: 100%; max-height: 40px; border: 0; border-left: 1px solid var(--line); background: rgba(255,255,255,.35); font-size: 15px; font-weight: 700; cursor: pointer; color: var(--fg); padding: 0; }

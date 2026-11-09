@@ -18,7 +18,12 @@ const hm = (t: string) => t.slice(11, 16);
 
 let sessions: S[] = [];
 const byId = new Map<string, S>();
-let selected = new Set<string>();
+type Mark = "favorite" | "interested";
+/** One mutually exclusive state per session: absent = nothing, favorite (★ attend), interested (✓ watch later). */
+let marks = new Map<string, Mark>();
+/** Browse list scroll position per list (day, or "all" days), kept while in My schedule. */
+const browseScroll = new Map<string, number>();
+const browseKey = () => ($<HTMLInputElement>("alldays").checked ? "all" : day);
 let view: "browse" | "mine" = "browse";
 let day: string = todaySlc();
 let openId: string | null = null;
@@ -95,27 +100,59 @@ function renderList() {
   $("count").textContent = `${rows.length} session${rows.length === 1 ? "" : "s"}`;
   const shown = rows.slice(0, 400);
   $("list").innerHTML = shown.map((s) => {
-    const on = selected.has(s.id);
+    const m = marks.get(s.id);
     const dayLabel = all ? `${DAYS.find(([k]) => k === s.day)?.[1] ?? s.day} ` : "";
-    return `<li class="item${on ? " sel" : ""}" data-id="${esc(s.id)}">
+    return `<li class="item${m === "favorite" ? " sel" : m === "interested" ? " int" : ""}" data-id="${esc(s.id)}">
       <div class="body" data-open="${esc(s.id)}">
         <div class="time">${dayLabel}${hm(s.startsAt)}–${hm(s.endsAt)}</div>
         <div class="title">${esc(s.title)}</div>
         <div class="sub">${esc(sub(s))}</div>
         ${s.speakerText ? `<div class="sub">${esc(s.speakerText)}</div>` : ""}
       </div>
-      <button class="toggle${on ? " on" : ""}" data-toggle="${esc(s.id)}" aria-label="${on ? "Remove from" : "Add to"} my schedule">${on ? "★" : "☆"}</button>
+      ${markButtons(s.id)}
     </li>`;
   }).join("") + (rows.length > shown.length ? `<li class="empty">Showing the first ${shown.length}. Narrow the search to see more.</li>` : "")
     + (rows.length === 0 ? `<li class="empty">No sessions match.</li>` : "");
 }
 
+function markButtons(id: string): string {
+  const m = marks.get(id);
+  const fav = m === "favorite";
+  const int = m === "interested";
+  return `<div class="marks">
+    <button class="toggle${fav ? " on" : ""}" data-mark="favorite" data-id="${esc(id)}" aria-pressed="${fav}"
+      aria-label="${fav ? "Remove favorite" : "Favorite: plan to attend"}">${fav ? "★" : "☆"}</button>
+    <button class="toggle check${int ? " on" : ""}" data-mark="interested" data-id="${esc(id)}" aria-pressed="${int}"
+      aria-label="${int ? "Remove interested" : "Interested: watch the recording later"}">✓</button>
+  </div>`;
+}
+
+function dayMarked(kind: Mark): S[] {
+  return [...marks].filter(([, m]) => m === kind).map(([id]) => byId.get(id)).filter((s): s is S => !!s && s.day === day)
+    .sort((a, b) => (a.startsAt < b.startsAt ? -1 : a.startsAt > b.startsAt ? 1 : 0));
+}
+
+function renderInterested() {
+  const list = dayMarked("interested");
+  $("interested").innerHTML = list.length
+    ? `<h3 class="section">Interested (watch later)</h3><ul class="list">${list.map((s) => `<li class="item int">
+        <div class="body" data-open="${esc(s.id)}">
+          <div class="time">${hm(s.startsAt)}–${hm(s.endsAt)}</div>
+          <div class="title">${esc(s.title)}</div>
+          ${s.speakerText ? `<div class="sub">${esc(s.speakerText)}</div>` : ""}
+        </div>
+        ${markButtons(s.id)}
+      </li>`).join("")}</ul>`
+    : "";
+}
+
 function renderGrid() {
-  const mine = [...selected].map((id) => byId.get(id)).filter((s): s is S => !!s && s.day === day);
+  renderInterested();
+  const mine = dayMarked("favorite");
   const grid = $("grid");
   if (mine.length === 0) {
     grid.style.height = "auto";
-    grid.innerHTML = `<p class="empty">Nothing selected for this day yet. Tap ☆ in Browse to add sessions.</p>`;
+    grid.innerHTML = `<p class="empty">No favorites for this day yet. Tap ☆ in Browse to plan what to attend.</p>`;
     return;
   }
   const blocks = layoutDay(mine);
@@ -134,7 +171,8 @@ function renderGrid() {
     html += `<div class="block${conflict ? " conflict" : ""}${short ? " short" : ""}" data-open="${esc(s.id)}"
       style="top:${(b.start - lo) * PX_PER_MIN}px;height:${h}px;left:${(b.col / b.cols) * 100}%;width:${100 / b.cols}%">
       <div class="bh">${hm(s.startsAt)}${conflict ? ` <span class="badge">Conflict</span>` : ""}</div>
-      <div class="bt">${esc(s.title)}</div></div>`;
+      <div class="bt">${esc(s.title)}</div>
+      <button class="bcheck" data-mark="interested" data-id="${esc(s.id)}" aria-label="Move to interested (watch later)">✓</button></div>`;
   }
   grid.innerHTML = html;
 }
@@ -144,33 +182,38 @@ function render() {
   document.querySelectorAll<HTMLButtonElement>(".view").forEach((b) => b.classList.toggle("on", b.dataset.view === view));
   $("browse").hidden = view !== "browse";
   $("mine").hidden = view !== "mine";
-  const n = [...selected].filter((id) => byId.has(id)).length;
-  $("mycount").textContent = n ? `(${n})` : "";
+  const counted = [...marks].filter(([id]) => byId.has(id));
+  const nFav = counted.filter(([, m]) => m === "favorite").length;
+  const nInt = counted.length - nFav;
+  $("mycount").textContent = [nFav ? `${nFav}★` : "", nInt ? `${nInt}✓` : ""].filter(Boolean).join(" ");
   if (view === "browse") renderList();
   else renderGrid();
   if (openId) renderDetailToggle();
 }
 
-async function toggle(id: string) {
-  const on = selected.has(id);
-  if (on) selected.delete(id); else selected.add(id);
-  render();
+/** Tapping a mark sets it, or clears it if it is already the current state. */
+async function setMark(id: string, kind: Mark) {
+  const prev = marks.get(id);
+  const next = prev === kind ? undefined : kind;
+  const apply = (m: Mark | undefined) => { if (m) marks.set(id, m); else marks.delete(id); render(); };
+  apply(next);
   try {
-    const res = await api(`/api/selections/${encodeURIComponent(id)}`, { method: on ? "DELETE" : "PUT" });
+    const res = await api(`/api/selections/${encodeURIComponent(id)}`, next
+      ? { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ status: next }) }
+      : { method: "DELETE" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  } catch (e) {
-    if (on) selected.add(id); else selected.delete(id);
-    render();
+  } catch {
+    apply(prev);
     toast("Could not save. Check your connection and try again.");
   }
 }
 
 function renderDetailToggle() {
-  const btn = document.getElementById("detail-toggle");
-  if (!btn || !openId) return;
-  const on = selected.has(openId);
-  btn.textContent = on ? "★ Remove from my schedule" : "☆ Add to my schedule";
-  btn.className = `btn ${on ? "" : "primary"}`;
+  const box = document.getElementById("detail-marks");
+  if (!box || !openId) return;
+  const m = marks.get(openId);
+  box.innerHTML = `<button class="btn${m === "favorite" ? " primary" : ""}" data-mark="favorite" data-id="${esc(openId)}" aria-pressed="${m === "favorite"}">${m === "favorite" ? "★ Favorite" : "☆ Favorite"}</button>
+    <button class="btn${m === "interested" ? " primary" : ""}" data-mark="interested" data-id="${esc(openId)}" aria-pressed="${m === "interested"}">✓ Interested</button>`;
 }
 
 async function openDetail(id: string) {
@@ -184,7 +227,7 @@ async function openDetail(id: string) {
     <dt>Track</dt><dd>${esc(s.track)}</dd>
     ${s.events.length ? `<dt>Event${s.events.length > 1 ? "s" : ""}</dt><dd>${esc(s.events.join(", "))}</dd>` : ""}
     ${s.format ? `<dt>Format</dt><dd>${esc(s.format)}</dd>` : ""}</dl>
-    <p><button id="detail-toggle" class="btn"></button></p>`;
+    <p id="detail-marks" class="detail-marks"></p>`;
   $("detail-body").innerHTML = head + `<p class="meta">Loading…</p>`;
   $("detail").hidden = false;
   renderDetailToggle();
@@ -238,15 +281,28 @@ async function refresh() {
 function wire() {
   document.addEventListener("click", (e) => {
     const t = e.target as HTMLElement;
-    const tog = t.closest<HTMLElement>("[data-toggle]");
-    if (tog) { toggle(tog.dataset.toggle!); return; }
+    const mk = t.closest<HTMLElement>("[data-mark]");
+    if (mk) { setMark(mk.dataset.id!, mk.dataset.mark as Mark); return; }
     const op = t.closest<HTMLElement>("[data-open]");
     if (op) { openDetail(op.dataset.open!); return; }
     const d = t.closest<HTMLElement>("[data-day]");
-    if (d) { day = d.dataset.day!; render(); window.scrollTo(0, 0); return; }
+    if (d) {
+      if (view === "browse") browseScroll.set(browseKey(), window.scrollY);
+      day = d.dataset.day!;
+      render();
+      window.scrollTo(0, view === "browse" ? browseScroll.get(browseKey()) ?? 0 : 0);
+      return;
+    }
     const v = t.closest<HTMLElement>("[data-view]");
-    if (v) { view = v.dataset.view as typeof view; render(); window.scrollTo(0, 0); return; }
-    if (t.id === "detail-toggle" && openId) { toggle(openId); return; }
+    if (v) {
+      const next = v.dataset.view as typeof view;
+      if (next === view) return;
+      if (view === "browse") browseScroll.set(browseKey(), window.scrollY);
+      view = next;
+      render();
+      window.scrollTo(0, view === "browse" ? browseScroll.get(browseKey()) ?? 0 : 0);
+      return;
+    }
     if (t.id === "close" || t.id === "detail") closeDetail();
   });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDetail(); });
@@ -267,7 +323,10 @@ async function main() {
   $("app").hidden = false;
   renderDays();
   const [, selRes] = await Promise.all([loadSessions(), api("/api/selections")]);
-  if (selRes.ok) selected = new Set(await selRes.json());
+  if (selRes.ok) {
+    const rows = (await selRes.json()) as { id: string; status: Mark }[];
+    marks = new Map(rows.map((r) => [r.id, r.status]));
+  }
   render();
 }
 
