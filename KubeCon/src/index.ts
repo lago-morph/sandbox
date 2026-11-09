@@ -70,6 +70,10 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
   const user = await currentUser(req, env);
   if (!user) return json({ error: "unauthorized" }, 401);
 
+  if (req.method !== "GET" && req.method !== "HEAD" && req.headers.get("origin") !== url.origin) {
+    return json({ error: "forbidden" }, 403);
+  }
+
   // Usage tracking for /admin. Never let it break the request.
   try {
     await touchUser(env.DB, user.uid, user.prov ?? "cloudflare");
@@ -77,11 +81,10 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
     console.error("touchUser failed", (e as Error).message);
   }
 
-  if (req.method !== "GET" && req.method !== "HEAD" && req.headers.get("origin") !== url.origin) {
-    return json({ error: "forbidden" }, 403);
-  }
-
   const path = url.pathname;
+  // Activity ping from the client (activity was recorded above). Who and when only.
+  if (path === "/api/ping" && req.method === "POST") return new Response(null, { status: 204 });
+
   if (path === "/api/me" && req.method === "GET") {
     return json({ userId: user.uid, email: user.email, provider: user.prov ?? "cloudflare" });
   }

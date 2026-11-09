@@ -297,6 +297,28 @@ function wire() {
   $("refresh").addEventListener("click", refresh);
 }
 
+/**
+ * Activity ping: tell the server the user did something (not what), at most once a minute.
+ * Browsing happens in the browser without server calls, so without this a returning user who only
+ * browses would never be counted.
+ */
+const PING_EVERY_MS = 60_000;
+let lastPing = 0;
+function ping() {
+  const now = Date.now();
+  if (now - lastPing < PING_EVERY_MS) return;
+  lastPing = now;
+  fetch("/api/ping", { method: "POST", credentials: "same-origin", keepalive: true }).catch(() => {});
+}
+function wireActivity() {
+  for (const ev of ["pointerdown", "keydown", "scroll", "input"]) {
+    window.addEventListener(ev, ping, { passive: true, capture: true });
+  }
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") ping();
+  });
+}
+
 async function main() {
   wire();
   let me: { email: string };
@@ -305,6 +327,8 @@ async function main() {
     if (res.status === 401) return showSignIn();
     me = await res.json();
   } catch { return showSignIn(); }
+  lastPing = Date.now(); // this page load's API calls already record activity
+  wireActivity();
   $("email").textContent = me.email || "Signed in";
   $("who").hidden = false;
   $("app").hidden = false;

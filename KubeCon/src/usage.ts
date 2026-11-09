@@ -14,9 +14,18 @@ export const TOUCH_USER_SQL =
 export const STATS_SQL =
   `SELECT COUNT(*) AS registered, COALESCE(SUM(CASE WHEN visits > ${ENGAGED_VISITS} THEN 1 ELSE 0 END), 0) AS engaged FROM users`;
 
-/** Record activity by a signed-in user. Called on every authenticated API request. */
+export const LOG_ACTIVITY_SQL = "INSERT INTO activity (user_id, at_ms) VALUES (?, ?)";
+
+/**
+ * Record activity by a signed-in user (who and when only). Called on every authenticated API
+ * request, including the client's throttled POST /api/ping. Updates the visit counter and appends
+ * to the activity log in one batch.
+ */
 export async function touchUser(db: D1Database, userId: string, provider: Provider, nowMs = Date.now()): Promise<void> {
-  await db.prepare(TOUCH_USER_SQL).bind(userId, provider, nowMs).run();
+  await db.batch([
+    db.prepare(TOUCH_USER_SQL).bind(userId, provider, nowMs),
+    db.prepare(LOG_ACTIVITY_SQL).bind(userId, nowMs),
+  ]);
 }
 
 export interface Stats {
