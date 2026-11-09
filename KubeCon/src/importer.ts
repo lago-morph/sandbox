@@ -14,6 +14,17 @@ const FETCH_TIMEOUT_MS = 20_000;
 /** Sessionize local wall-clock time, e.g. 2026-11-09T09:30:00 (no offset). */
 const LOCAL_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/;
 
+/** The value if it is an absolute https URL (so it is safe to use as a link), else "". */
+export function httpsUrl(v: unknown): string {
+  if (typeof v !== "string") return "";
+  const t = v.trim();
+  try {
+    return new URL(t).protocol === "https:" ? t : "";
+  } catch {
+    return "";
+  }
+}
+
 /** Strip leading characters that are neither letters nor digits ("☕ Breaks" -> "Breaks"). */
 export function stripLead(s: string): string {
   return s.replace(/^[^\p{L}\p{N}]+/u, "");
@@ -37,6 +48,7 @@ export function parseFeed(kind: FeedKind, data: unknown): Session[] {
   const qByTitle = new Map<string, string>();
   for (const q of d.questions) qByTitle.set(String(q.question ?? "").trim(), String(q.id));
   const companyQ = qByTitle.get("Company");
+  const slidesQ = qByTitle.get("Presentation Slides");
   const titleQ = qByTitle.get("Speaker Title");
 
   const speakers = new Map<string, Speaker>();
@@ -110,6 +122,10 @@ export function parseFeed(kind: FeedKind, data: unknown): Session[] {
       events,
       speakers: sp,
       speakerText: sp.map((x) => (x.company ? `${x.name} (${x.company})` : x.name)).join(", "),
+      slidesUrl: httpsUrl(
+        slidesQ ? (s.questionAnswers ?? []).find((a: any) => String(a?.questionId) === slidesQ)?.answerValue : undefined,
+      ),
+      recordingUrl: httpsUrl(s.recordingUrl),
     });
   }
   return out;
@@ -174,7 +190,7 @@ export interface ImportResult {
 
 const COLS = [
   "id", "source", "title", "description", "day", "starts_at", "ends_at",
-  "room", "track", "format", "events", "speakers", "speaker_text",
+  "room", "track", "format", "events", "speakers", "speaker_text", "slides_url", "recording_url",
 ] as const;
 
 export const UPSERT_SQL =
@@ -187,7 +203,7 @@ export const META_SQL = "INSERT INTO meta (k, v) VALUES (?, ?) ON CONFLICT(k) DO
 function toRow(s: Session): (string | null)[] {
   return [
     s.id, s.source, s.title, s.description, s.day, s.startsAt, s.endsAt, s.room, s.track,
-    s.format, JSON.stringify(s.events), JSON.stringify(s.speakers), s.speakerText,
+    s.format, JSON.stringify(s.events), JSON.stringify(s.speakers), s.speakerText, s.slidesUrl, s.recordingUrl,
   ];
 }
 

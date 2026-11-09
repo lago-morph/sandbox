@@ -19,7 +19,7 @@ function safeDecode(s: string): string | null {
   }
 }
 
-const SECURITY_HEADERS: Record<string, string> = {
+export const SECURITY_HEADERS: Record<string, string> = {
   "x-content-type-options": "nosniff",
   "x-frame-options": "DENY",
   "referrer-policy": "same-origin",
@@ -33,6 +33,41 @@ export function withSecurityHeaders(res: Response): Response {
   const out = new Response(res.body, res);
   for (const [k, v] of Object.entries(SECURITY_HEADERS)) if (!out.headers.has(k)) out.headers.set(k, v);
   return out;
+}
+
+/** Error text safe to show users: our own import messages name the feed; anything else is generic. */
+function publicError(e: unknown): string {
+  const msg = (e as Error)?.message ?? "";
+  console.error("request failed", msg);
+  return /^(Feed "|Import produced)/.test(msg) ? msg : "Something went wrong. Please try again later.";
+}
+
+const MAX_BODY_BYTES = 1024;
+
+/** Read a small request body, or null if it is larger than MAX_BODY_BYTES. */
+async function readSmallBody(req: Request): Promise<string | null> {
+  if (Number(req.headers.get("content-length") ?? "0") > MAX_BODY_BYTES) return null;
+  if (!req.body) return "";
+  const reader = req.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > MAX_BODY_BYTES) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+  const all = new Uint8Array(size);
+  let off = 0;
+  for (const c of chunks) {
+    all.set(c, off);
+    off += c.byteLength;
+  }
+  return new TextDecoder().decode(all);
 }
 
 function json(data: unknown, status = 200): Response {
@@ -95,7 +130,7 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
       try {
         await runImport(env.DB);
       } catch (e) {
-        return json({ error: (e as Error).message }, 502);
+        return json({ error: publicError(e) }, 502);
       }
       sessions = await listSessions(env);
     }
@@ -122,6 +157,8 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
       events: JSON.parse(r.events ?? "[]"),
       speakers: JSON.parse(r.speakers ?? "[]"),
       speakerText: r.speaker_text,
+      slidesUrl: r.slides_url ?? "",
+      recordingUrl: r.recording_url ?? "",
     });
   }
 
@@ -130,7 +167,7 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
       const result = await runImport(env.DB);
       return json({ ...result, lastImportAt: await lastImportAt(env) });
     } catch (e) {
-      return json({ error: (e as Error).message }, 502);
+      return json({ error: publicError(e) }, 502);
     }
   }
 
@@ -147,7 +184,8 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
     if (id === null) return json({ error: "not found" }, 404);
     if (req.method === "PUT") {
       let status = "favorite";
-      const text = await req.text();
+      const text = await readSmallBody(req);
+      if (text === null) return json({ error: "request body too large" }, 413);
       if (text) {
         try {
           status = (JSON.parse(text) as { status?: string }).status ?? "favorite";

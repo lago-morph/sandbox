@@ -145,6 +145,9 @@ export async function currentUser(req: Request, env: Env): Promise<SessionUser |
   if (s.typ !== undefined && s.typ !== "session") return null;
   if (typeof s.uid !== "string" || !s.uid) return null;
   if (s.prov !== undefined && s.prov !== "cloudflare" && s.prov !== "google") return null;
+  // Each provider has its own user-id namespace (Google users are "google:<sub>"), so a token
+  // can never pair one provider with another provider's user id.
+  if (((s.prov ?? "cloudflare") === "google") !== s.uid.startsWith("google:")) return null;
   return s;
 }
 
@@ -185,6 +188,12 @@ export async function login(req: Request, env: Env): Promise<Response> {
 
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+}
+
+/** Fixed text for an OAuth error redirect; only a standard error code is shown, never free text. */
+export function oauthErrorMessage(provider: string, code: string): string {
+  const c = /^[a-z_]{1,40}$/.test(code) ? ` (${code})` : "";
+  return `Sign-in with ${provider} was cancelled or did not complete${c}.`;
 }
 
 export function errorPage(status: number, message: string): Response {
@@ -239,7 +248,7 @@ export async function isAllowed(env: Env, email: string, accessToken: string, fe
 export async function callback(req: Request, env: Env, fetchImpl: typeof fetch = fetch): Promise<Response> {
   const url = new URL(req.url);
   const err = url.searchParams.get("error");
-  if (err) return errorPage(400, `Cloudflare returned: ${err}${url.searchParams.get("error_description") ? ` (${url.searchParams.get("error_description")})` : ""}`);
+  if (err) return errorPage(400, oauthErrorMessage("Cloudflare", err));
 
   const verifier = await checkOAuthState(req, env, "cloudflare");
   const code = url.searchParams.get("code") ?? "";

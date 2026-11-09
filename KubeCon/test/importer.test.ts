@@ -81,6 +81,15 @@ describe("parseFeed", () => {
     expect(ids).toContain("100");
   });
 
+  it("reads the slides link and recording URL, accepting only https", () => {
+    const s = find(parseFeed("main", main), "100");
+    expect(s.slidesUrl).toBe("https://sessionize.com/download/abc~slides.pdf");
+    expect(s.recordingUrl).toBe("https://www.youtube.com/watch?v=abc");
+    expect(find(parseFeed("main", main), "102")).toMatchObject({ slidesUrl: "", recordingUrl: "" });
+    const bad = find(parseFeed("colocated", colocated), "200");
+    expect(bad).toMatchObject({ slidesUrl: "", recordingUrl: "" });
+  });
+
   it("throws naming the feed on malformed JSON", () => {
     expect(() => parseFeed("colocated", { sessions: "nope" })).toThrow(/colocated/);
     expect(() => parseFeed("sponsor", null)).toThrow(/sponsor/);

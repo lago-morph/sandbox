@@ -4,7 +4,18 @@ interface S {
   id: string; source: string; title: string; day: string; startsAt: string; endsAt: string;
   room: string; track: string; format: string | null; events: string[]; speakerText: string;
 }
-interface Full extends S { description: string; speakers: { name: string; company: string; title: string }[] }
+interface Full extends S {
+  description: string;
+  speakers: { name: string; company: string; title: string }[];
+  slidesUrl?: string;
+  recordingUrl?: string;
+}
+
+/** An external link, only for https URLs (the server already filters, this is a second check). */
+function extLink(url: string | undefined, label: string): string {
+  if (!url || !/^https:\/\//i.test(url)) return "";
+  return `<a class="btn" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${label}</a>`;
+}
 
 const DAYS = [
   ["2026-11-08", "Sun 8"], ["2026-11-09", "Mon 9"], ["2026-11-10", "Tue 10"], ["2026-11-11", "Wed 11"], ["2026-11-12", "Thu 12"],
@@ -226,7 +237,9 @@ async function openDetail(id: string) {
     const sp = f.speakers.length
       ? `<h3>Speakers</h3><ul>${f.speakers.map((x) => `<li><strong>${esc(x.name)}</strong>${x.company || x.title ? `<br><span class="meta">${esc([x.title, x.company].filter(Boolean).join(", "))}</span>` : ""}</li>`).join("")}</ul>`
       : "";
-    $("detail-body").innerHTML = head + (f.description ? `<p class="desc">${esc(f.description)}</p>` : "") + sp;
+    const links = [extLink(f.slidesUrl, "⬇ Slides"), extLink(f.recordingUrl, "▶ Recording")].filter(Boolean).join(" ");
+    $("detail-body").innerHTML = head + (links ? `<p class="detail-links">${links}</p>` : "") +
+      (f.description ? `<p class="desc">${esc(f.description)}</p>` : "") + sp;
     renderDetailToggle();
   } catch {
     if (openId === id) $("detail-body").innerHTML = head + `<p class="meta">Could not load details.</p>`;

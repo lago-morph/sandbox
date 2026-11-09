@@ -79,7 +79,7 @@ describe("/admin", () => {
     const { d1 } = sqliteD1();
     const env = { SESSION_SECRET: SECRET, DB: d1, OAUTH_CLIENT_ID: "cf", ASSETS: { fetch: async () => new Response("x") } } as unknown as Env;
     const cookieFor = async (prov?: string) =>
-      `kp_session=${await signToken({ uid: "u1", email: "", ...(prov ? { prov } : {}), exp: Math.floor(Date.now() / 1000) + 60 }, SECRET)}`;
+      `kp_session=${await signToken({ uid: prov === "google" ? "google:u1" : "u1", email: "", ...(prov ? { prov } : {}), exp: Math.floor(Date.now() / 1000) + 60 }, SECRET)}`;
     const get = (cookie?: string) => worker.fetch(new Request(`${ORIGIN}/admin`, { headers: cookie ? { cookie } : {} }), env);
     return { d1, env, cookieFor, get };
   }

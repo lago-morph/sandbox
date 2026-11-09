@@ -1,5 +1,5 @@
 /** Sign in with Google (OAuth 2.0 authorization code + PKCE, OpenID Connect userinfo). */
-import { checkOAuthState, errorPage, signedIn, startOAuth } from "./auth";
+import { checkOAuthState, errorPage, oauthErrorMessage, signedIn, startOAuth } from "./auth";
 import type { Env } from "./types";
 
 export const GOOGLE_AUTHORIZE_URL = "https://accounts.google.com/o/oauth2/v2/auth";
@@ -42,7 +42,7 @@ export function googleUserId(sub: string): string {
 export async function googleCallback(req: Request, env: Env, fetchImpl: typeof fetch = fetch): Promise<Response> {
   const url = new URL(req.url);
   const err = url.searchParams.get("error");
-  if (err) return errorPage(400, `Google returned: ${err}`);
+  if (err) return errorPage(400, oauthErrorMessage("Google", err));
   const verifier = await checkOAuthState(req, env, "google");
   const code = url.searchParams.get("code") ?? "";
   if (!verifier) return errorPage(400, "The sign-in request expired or did not match. Please try again.");

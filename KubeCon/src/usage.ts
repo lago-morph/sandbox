@@ -6,15 +6,20 @@ export const VISIT_GAP_MS = 15 * 60 * 1000;
 /** "Engaged" users have more than this many visits. */
 export const ENGAGED_VISITS = 5;
 
+/** At most one write per user per this interval (users row and activity row), to bound D1 writes. */
+export const WRITE_EVERY_MS = 60 * 1000;
+
 export const TOUCH_USER_SQL =
   "INSERT INTO users (user_id, provider, first_seen_ms, last_seen_ms, visits) VALUES (?1, ?2, ?3, ?3, 1) " +
   `ON CONFLICT(user_id) DO UPDATE SET visits = users.visits + (CASE WHEN ?3 - users.last_seen_ms > ${VISIT_GAP_MS} THEN 1 ELSE 0 END), ` +
-  "last_seen_ms = MAX(users.last_seen_ms, ?3)";
+  `last_seen_ms = ?3 WHERE ?3 - users.last_seen_ms >= ${WRITE_EVERY_MS}`;
 
 export const STATS_SQL =
   `SELECT COUNT(*) AS registered, COALESCE(SUM(CASE WHEN visits > ${ENGAGED_VISITS} THEN 1 ELSE 0 END), 0) AS engaged FROM users`;
 
-export const LOG_ACTIVITY_SQL = "INSERT INTO activity (user_id, at_ms) VALUES (?, ?)";
+export const LOG_ACTIVITY_SQL =
+  "INSERT INTO activity (user_id, at_ms) SELECT ?1, ?2 " +
+  `WHERE NOT EXISTS (SELECT 1 FROM activity WHERE user_id = ?1 AND at_ms > ?2 - ${WRITE_EVERY_MS})`;
 
 /**
  * Record activity by a signed-in user (who and when only). Called on every authenticated API
