@@ -132,22 +132,8 @@ function dayMarked(kind: Mark): S[] {
     .sort((a, b) => (a.startsAt < b.startsAt ? -1 : a.startsAt > b.startsAt ? 1 : 0));
 }
 
-function renderInterested() {
-  const list = dayMarked("interested");
-  $("interested").innerHTML = list.length
-    ? `<h3 class="section">Interested (watch later)</h3><ul class="list">${list.map((s) => `<li class="item int">
-        <div class="body" data-open="${esc(s.id)}">
-          <div class="time">${hm(s.startsAt)}–${hm(s.endsAt)}</div>
-          <div class="title">${esc(s.title)}</div>
-          ${s.speakerText ? `<div class="sub">${esc(s.speakerText)}</div>` : ""}
-        </div>
-        ${markButtons(s.id)}
-      </li>`).join("")}</ul>`
-    : "";
-}
-
 function renderGrid() {
-  renderInterested();
+  // My schedule shows starred (favorite) sessions only.
   const mine = dayMarked("favorite");
   const grid = $("grid");
   if (mine.length === 0) {

@@ -66,7 +66,6 @@ button, select, input { font: inherit; color: inherit; }
 .toggle.check { font-size: 18px; font-weight: 700; }
 .toggle.check.on { background: var(--int-line); border-color: var(--int-line); color: #fff; }
 .item.int { background: var(--int); border-color: var(--int-line); }
-.section { font-size: 15px; margin: 16px 12px 0; }
 .detail-marks { display: flex; gap: 8px; flex-wrap: wrap; }
 .block { padding-right: 34px; }
 .bcheck { position: absolute; top: 0; right: 0; width: 32px; height: 100%; max-height: 40px; border: 0; border-left: 1px solid var(--line); background: rgba(255,255,255,.35); font-size: 15px; font-weight: 700; cursor: pointer; color: var(--fg); padding: 0; }
