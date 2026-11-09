@@ -10,6 +10,31 @@ export const UPSERT_SELECTION_SQL =
   "INSERT INTO selections (user_id, session_id, status, created_at) VALUES (?, ?, ?, ?) " +
   "ON CONFLICT(user_id, session_id) DO UPDATE SET status = excluded.status";
 
+/** decodeURIComponent that returns null instead of throwing on malformed % sequences. */
+function safeDecode(s: string): string | null {
+  try {
+    return decodeURIComponent(s);
+  } catch {
+    return null;
+  }
+}
+
+const SECURITY_HEADERS: Record<string, string> = {
+  "x-content-type-options": "nosniff",
+  "x-frame-options": "DENY",
+  "referrer-policy": "same-origin",
+  "content-security-policy":
+    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; " +
+    "object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
+};
+
+/** Copy a response and add the security headers (asset responses have immutable headers). */
+export function withSecurityHeaders(res: Response): Response {
+  const out = new Response(res.body, res);
+  for (const [k, v] of Object.entries(SECURITY_HEADERS)) if (!out.headers.has(k)) out.headers.set(k, v);
+  return out;
+}
+
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
@@ -76,7 +101,9 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
 
   const one = path.match(/^\/api\/sessions\/([^/]+)$/);
   if (one && req.method === "GET") {
-    const r = await env.DB.prepare("SELECT * FROM sessions WHERE id = ?").bind(decodeURIComponent(one[1])).first<Record<string, string | null>>();
+    const sid = safeDecode(one[1]);
+    if (sid === null) return json({ error: "not found" }, 404);
+    const r = await env.DB.prepare("SELECT * FROM sessions WHERE id = ?").bind(sid).first<Record<string, string | null>>();
     if (!r) return json({ error: "not found" }, 404);
     return json({
       id: r.id,
@@ -113,7 +140,8 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
 
   const sel = path.match(/^\/api\/selections\/([^/]+)$/);
   if (sel) {
-    const id = decodeURIComponent(sel[1]);
+    const id = safeDecode(sel[1]);
+    if (id === null) return json({ error: "not found" }, 404);
     if (req.method === "PUT") {
       let status = "favorite";
       const text = await req.text();
@@ -141,6 +169,12 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
 
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
+    return withSecurityHeaders(await route(req, env));
+  },
+} satisfies ExportedHandler<Env>;
+
+async function route(req: Request, env: Env): Promise<Response> {
+  {
     const url = new URL(req.url);
     if (url.pathname.startsWith("/api/")) return handleApi(req, env, url);
     if (url.pathname === "/admin" && req.method === "GET") return adminPage(req, env);
@@ -151,5 +185,5 @@ export default {
     if (url.pathname === "/auth/logout" && (req.method === "GET" || req.method === "POST")) return logout();
     if (url.pathname.startsWith("/auth/")) return new Response("Not found", { status: 404 });
     return env.ASSETS.fetch(req);
-  },
-} satisfies ExportedHandler<Env>;
+  }
+}

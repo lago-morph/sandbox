@@ -11,6 +11,8 @@ export const FEEDS: { kind: FeedKind; code: string }[] = [
 export const COLOCATED_TRACK = "CNCF-hosted Co-located Events";
 const COLOCATED_SPECIAL = new Set(["Breaks", "Experiences", "Registration"]);
 const FETCH_TIMEOUT_MS = 20_000;
+/** Sessionize local wall-clock time, e.g. 2026-11-09T09:30:00 (no offset). */
+const LOCAL_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/;
 
 /** Strip leading characters that are neither letters nor digits ("☕ Breaks" -> "Breaks"). */
 export function stripLead(s: string): string {
@@ -63,7 +65,9 @@ export function parseFeed(kind: FeedKind, data: unknown): Session[] {
 
   const out: Session[] = [];
   for (const s of d.sessions) {
-    if (!s || !s.startsAt || !s.endsAt) continue;
+    // Skip sessions without valid local times. The format is checked because these strings are
+    // also used to derive the day and are shown in the UI.
+    if (!s || !LOCAL_TIME.test(String(s.startsAt ?? "")) || !LOCAL_TIME.test(String(s.endsAt ?? ""))) continue;
     const cats = (s.categoryItems ?? []).map((id: unknown) => items.get(String(id))).filter(Boolean) as {
       category: string;
       name: string;

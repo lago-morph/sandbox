@@ -69,6 +69,18 @@ describe("parseFeed", () => {
     expect(late.room).toBe("");
   });
 
+  it("skips sessions whose times are not local date-times (e.g. injected markup)", () => {
+    const feed = structuredClone(main) as any;
+    feed.sessions.push(
+      { id: "x1", title: "Evil", startsAt: "<img src='", endsAt: "2026-11-09T10:00:00", speakers: [], categoryItems: [], roomId: null },
+      { id: "x2", title: "Evil", startsAt: "2026-11-09T10:00:00", endsAt: "~*/alert() '", speakers: [], categoryItems: [], roomId: null },
+    );
+    const ids = parseFeed("main", feed).map((s) => s.id);
+    expect(ids).not.toContain("x1");
+    expect(ids).not.toContain("x2");
+    expect(ids).toContain("100");
+  });
+
   it("throws naming the feed on malformed JSON", () => {
     expect(() => parseFeed("colocated", { sessions: "nope" })).toThrow(/colocated/);
     expect(() => parseFeed("sponsor", null)).toThrow(/sponsor/);

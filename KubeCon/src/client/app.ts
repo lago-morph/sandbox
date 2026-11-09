@@ -14,7 +14,8 @@ const PX_PER_MIN = 1.3;
 const $ = <T = HTMLElement>(id: string) => document.getElementById(id) as unknown as T;
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 /** HH:MM straight from the local wall-clock string (never via Date, R-2.3). */
-const hm = (t: string) => t.slice(11, 16);
+// Escaped: these strings come from the third-party feed and are inserted as HTML.
+const hm = (t: string) => esc(t.slice(11, 16));
 
 let sessions: S[] = [];
 const byId = new Map<string, S>();
@@ -101,7 +102,7 @@ function renderList() {
   const shown = rows.slice(0, 400);
   $("list").innerHTML = shown.map((s) => {
     const m = marks.get(s.id);
-    const dayLabel = all ? `${DAYS.find(([k]) => k === s.day)?.[1] ?? s.day} ` : "";
+    const dayLabel = all ? `${esc(DAYS.find(([k]) => k === s.day)?.[1] ?? s.day)} ` : "";
     return `<li class="item${m === "favorite" ? " sel" : m === "interested" ? " int" : ""}" data-id="${esc(s.id)}">
       <div class="body" data-open="${esc(s.id)}">
         <div class="time">${dayLabel}${hm(s.startsAt)}–${hm(s.endsAt)}</div>
@@ -206,7 +207,7 @@ async function openDetail(id: string) {
   const s = byId.get(id);
   if (!s) return;
   openId = id;
-  const dayLabel = DAYS.find(([k]) => k === s.day)?.[1] ?? s.day;
+  const dayLabel = esc(DAYS.find(([k]) => k === s.day)?.[1] ?? s.day);
   const head = `<h2>${esc(s.title)}</h2>
     <dl><dt>When</dt><dd>${dayLabel}, ${hm(s.startsAt)}–${hm(s.endsAt)} (Salt Lake City)</dd>
     <dt>Room</dt><dd>${esc(s.room || "TBA")}</dd>
