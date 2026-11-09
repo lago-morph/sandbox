@@ -6,7 +6,8 @@
     "test": "vitest run",
     "build:client": "esbuild src/client/app.ts --bundle --format=esm --outfile=public/app.js --target=es2020",
     "deploy": "npm run build:client && node scripts/deploy.mjs",
-    "smoke": "NODE_USE_ENV_PROXY=1 node scripts/smoke.mjs"
+    "smoke": "NODE_USE_ENV_PROXY=1 node scripts/smoke.mjs",
+    "backup": "node scripts/backup.mjs"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20261109.1",
