@@ -1,0 +1,10 @@
+{
+  "sessions": [
+    { "id": "300", "title": "Maintainer Keynote", "description": null, "startsAt": "2026-11-08T09:00:00", "endsAt": "2026-11-08T09:30:00", "speakers": [], "categoryItems": [40], "roomId": 9 },
+    { "id": "301", "title": "Unconference", "description": null, "startsAt": "2026-11-08T13:00:00", "endsAt": "2026-11-08T14:00:00", "speakers": [], "categoryItems": [], "roomId": 9 }
+  ],
+  "speakers": [],
+  "questions": [ { "id": 7, "question": "Company" } ],
+  "categories": [ { "id": 5, "title": "Session Category", "items": [ { "id": 40, "name": "Main Track" } ] } ],
+  "rooms": [ { "id": 9, "name": "Hilton | Ballroom A" } ]
+}

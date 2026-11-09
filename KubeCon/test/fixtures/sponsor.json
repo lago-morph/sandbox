@@ -1,0 +1,10 @@
+{
+  "sessions": [
+    { "id": "500", "title": "Sponsor Day (sponsor copy)", "description": null, "startsAt": "2026-11-09T09:00:00", "endsAt": "2026-11-09T12:00:00", "speakers": [], "categoryItems": [14], "roomId": 1 },
+    { "id": "501", "title": "Sponsor-only event", "description": null, "startsAt": "2026-11-09T13:00:00", "endsAt": "2026-11-09T15:00:00", "speakers": [], "categoryItems": [14], "roomId": 1 }
+  ],
+  "speakers": [],
+  "questions": [],
+  "categories": [ { "id": 1, "title": "All Sessions", "items": [ { "id": 14, "name": "Sponsor-hosted Co-located Events" } ] } ],
+  "rooms": [ { "id": 1, "name": "Salt Palace | Level 1 | Grand Ballroom H" } ]
+}

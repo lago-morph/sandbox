@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1f2937">
+  <title>KubeCon Planner</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">KubeCon NA 2026 planner</div>
+    <div class="who" id="who" hidden>
+      <span id="email"></span>
+      <a href="/auth/logout" class="link">Sign out</a>
+    </div>
+  </header>
+
+  <main id="signin" class="center" hidden>
+    <h1>KubeCon + CloudNativeCon NA 2026</h1>
+    <p>Salt Lake City, 8 to 12 November.</p>
+    <p class="signin-buttons">
+      <a class="btn primary big" href="/auth/google/login">Sign in with Google</a>
+      <a class="btn primary big" href="/auth/login">Sign in with Cloudflare</a>
+    </p>
+  </main>
+
+  <div id="app" hidden>
+    <div class="sticky">
+      <nav class="views">
+        <button data-view="browse" class="view on">Browse</button>
+        <button data-view="mine" class="view">My schedule <span id="mycount"></span></button>
+      </nav>
+      <nav class="days" id="days"></nav>
+    </div>
+
+    <section id="browse">
+      <div class="controls">
+        <input id="q" type="search" placeholder="Search title, speaker, company" autocomplete="off">
+        <label class="check"><input type="checkbox" id="alldays"> All days</label>
+        <select id="track"><option value="">All tracks</option></select>
+        <select id="event"><option value="">All co-located events</option></select>
+      </div>
+      <p class="meta" id="count"></p>
+      <ul id="list" class="list"></ul>
+    </section>
+
+    <section id="mine" hidden>
+      <div id="grid" class="grid"></div>
+    </section>
+
+    <footer class="foot">
+      <p>Times: Salt Lake City (MST)</p>
+      <p><button id="refresh" class="btn">Refresh schedule</button> <span id="imported"></span></p>
+    </footer>
+  </div>
+
+  <div id="detail" class="sheet" hidden>
+    <div class="sheet-inner">
+      <button id="close" class="btn close" aria-label="Close">✕</button>
+      <div id="detail-body"></div>
+    </div>
+  </div>
+  <div id="toast" class="toast" hidden></div>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
