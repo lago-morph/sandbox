@@ -1,0 +1,12 @@
+// npm run deploy (R-6.2): wrangler deploy with ACCOUNT_ID passed via --var, never echoed.
+import { wrangler } from "./wr.mjs";
+
+const id = process.env.CLOUDFLARE_ACCOUNT_ID;
+if (!id) {
+  console.error("CLOUDFLARE_ACCOUNT_ID is not set");
+  process.exit(1);
+}
+await wrangler(["deploy", "--var", `ACCOUNT_ID:${id}`]).catch((e) => {
+  console.error(e.message);
+  process.exit(1);
+});
