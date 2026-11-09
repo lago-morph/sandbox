@@ -105,6 +105,15 @@ describe("error pages", () => {
   });
 });
 
+describe("session list", () => {
+  it("flags sessions that have a slides link", async () => {
+    const { raw, cookie, call } = setup();
+    raw.exec("UPDATE sessions SET slides_url = 'https://sessionize.com/download/x.pdf' WHERE id = 's2'");
+    const body = (await (await call("GET", "/api/sessions", await cookie("cf-aaa", "cloudflare"))).json()) as { sessions: { id: string; hasSlides: boolean }[] };
+    expect(body.sessions.map((x) => [x.id, x.hasSlides])).toEqual([["s1", false], ["s2", true]]);
+  });
+});
+
 describe("static asset headers", () => {
   it("public/_headers matches the Worker's security headers", () => {
     const file = readFileSync("public/_headers", "utf8").toLowerCase();

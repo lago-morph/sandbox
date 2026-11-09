@@ -85,8 +85,8 @@ async function lastImportAt(env: Env): Promise<string | null> {
 
 async function listSessions(env: Env) {
   const { results } = await env.DB.prepare(
-    "SELECT id, source, title, day, starts_at, ends_at, room, track, format, events, speaker_text FROM sessions ORDER BY starts_at, id",
-  ).all<Record<string, string | null>>();
+    "SELECT id, source, title, day, starts_at, ends_at, room, track, format, events, speaker_text, slides_url <> '' AS has_slides FROM sessions ORDER BY starts_at, id",
+  ).all<Record<string, string | number | null>>();
   return (results ?? []).map((r) => ({
     id: r.id,
     source: r.source,
@@ -97,8 +97,9 @@ async function listSessions(env: Env) {
     room: r.room,
     track: r.track,
     format: r.format,
-    events: JSON.parse(r.events ?? "[]"),
+    events: JSON.parse(String(r.events ?? "[]")),
     speakerText: r.speaker_text,
+    hasSlides: Boolean(r.has_slides),
   }));
 }
 

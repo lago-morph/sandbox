@@ -3,7 +3,11 @@ import { layoutDay } from "../layout";
 interface S {
   id: string; source: string; title: string; day: string; startsAt: string; endsAt: string;
   room: string; track: string; format: string | null; events: string[]; speakerText: string;
+  /** The session has a slide download (shown as a dot next to the time). */
+  hasSlides?: boolean;
 }
+
+const slidesDot = (s: S) => (s.hasSlides ? `<span class="slides-dot" title="Slides available" aria-label="Slides available"></span>` : "");
 interface Full extends S {
   description: string;
   speakers: { name: string; company: string; title: string }[];
@@ -116,7 +120,7 @@ function renderList() {
     const dayLabel = all ? `${esc(DAYS.find(([k]) => k === s.day)?.[1] ?? s.day)} ` : "";
     return `<li class="item${m === "favorite" ? " sel" : m === "interested" ? " int" : ""}" data-id="${esc(s.id)}">
       <div class="body" data-open="${esc(s.id)}">
-        <div class="time">${dayLabel}${hm(s.startsAt)}–${hm(s.endsAt)}</div>
+        <div class="time">${dayLabel}${hm(s.startsAt)}–${hm(s.endsAt)}${slidesDot(s)}</div>
         <div class="title">${esc(s.title)}</div>
         <div class="sub">${esc(sub(s))}</div>
         ${s.speakerText ? `<div class="sub">${esc(s.speakerText)}</div>` : ""}
@@ -168,7 +172,7 @@ function renderGrid() {
     const short = h < 40; // one line: time, badge, truncated title
     html += `<div class="block${conflict ? " conflict" : ""}${short ? " short" : ""}" data-open="${esc(s.id)}"
       style="top:${(b.start - lo) * PX_PER_MIN}px;height:${h}px;left:${(b.col / b.cols) * 100}%;width:${100 / b.cols}%">
-      <div class="bh">${hm(s.startsAt)}${conflict ? ` <span class="badge">Conflict</span>` : ""}</div>
+      <div class="bh">${hm(s.startsAt)}${slidesDot(s)}${conflict ? ` <span class="badge">Conflict</span>` : ""}</div>
       <div class="bt">${esc(s.title)}</div>
       <button class="bcheck" data-mark="interested" data-id="${esc(s.id)}" aria-label="Move to interested (watch later)">✓</button></div>`;
   }
