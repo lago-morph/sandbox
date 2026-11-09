@@ -1,5 +1,5 @@
 import type { Env } from "./types";
-import { recordIdentity, type Provider } from "./identities";
+export type Provider = "cloudflare" | "google";
 
 export const AUTHORIZE_URL = "https://dash.cloudflare.com/oauth2/auth";
 export const TOKEN_URL = "https://dash.cloudflare.com/oauth2/token";
@@ -249,12 +249,6 @@ export async function callback(req: Request, env: Env, fetchImpl: typeof fetch =
       return errorPage(403, "Not a member of this Cloudflare account");
     }
 
-    // Remember this member's email so a Google sign-in with the same verified email maps to this user.
-    try {
-      await recordIdentity(env.DB, "cloudflare", uid, uid, email);
-    } catch {
-      // Not fatal for Cloudflare sign-in.
-    }
     return signedIn(env, uid, email, "cloudflare");
   } catch {
     return errorPage(502, "Sign-in failed while talking to Cloudflare.");

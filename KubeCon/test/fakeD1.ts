@@ -1,6 +1,5 @@
 import { DELETE_SQL, META_SQL, SELECT_ALL_SQL, UPSERT_SQL } from "../src/importer";
 import { UPSERT_SELECTION_SQL } from "../src/index";
-import { FIND_CLOUDFLARE_BY_EMAIL_SQL, FIND_IDENTITY_SQL, UPSERT_IDENTITY_SQL } from "../src/identities";
 
 const COLS = ["id", "source", "title", "description", "day", "starts_at", "ends_at", "room", "track", "format", "events", "speakers", "speaker_text"];
 
@@ -9,7 +8,6 @@ export class FakeD1 {
   sessions = new Map<string, Record<string, unknown>>();
   selections = new Map<string, { user_id: string; session_id: string; status: string; created_at: string }>();
   meta = new Map<string, string>();
-  identities = new Map<string, { provider: string; subject: string; user_id: string; email: string; updated_at: string }>();
   batches: number[] = [];
 
   prepare(sql: string) {
@@ -26,14 +24,6 @@ export class FakeD1 {
       },
       async first() {
         if (sql.startsWith("SELECT v FROM meta")) return db.meta.has("last_import_at") ? { v: db.meta.get("last_import_at") } : null;
-        if (sql === FIND_IDENTITY_SQL) {
-          const r = db.identities.get(`${args[0]}|${args[1]}`);
-          return r ? { user_id: r.user_id } : null;
-        }
-        if (sql === FIND_CLOUDFLARE_BY_EMAIL_SQL) {
-          const r = [...db.identities.values()].find((i) => i.provider === "cloudflare" && i.email.toLowerCase() === String(args[0]).toLowerCase());
-          return r ? { user_id: r.user_id } : null;
-        }
         if (sql.startsWith("SELECT 1 AS x FROM sessions")) return db.sessions.has(String(args[0])) ? { x: 1 } : null;
         throw new Error(`FakeD1: unsupported first() ${sql}`);
       },
@@ -41,11 +31,7 @@ export class FakeD1 {
         if (sql === UPSERT_SQL) db.sessions.set(String(args[0]), Object.fromEntries(COLS.map((c, i) => [c, args[i]])));
         else if (sql === DELETE_SQL) db.sessions.delete(String(args[0]));
         else if (sql === META_SQL) db.meta.set(String(args[0]), String(args[1]));
-        else if (sql === UPSERT_IDENTITY_SQL) {
-          const k = `${args[0]}|${args[1]}`;
-          const prev = db.identities.get(k);
-          db.identities.set(k, { provider: String(args[0]), subject: String(args[1]), user_id: prev?.user_id ?? String(args[2]), email: String(args[3]), updated_at: String(args[4]) });
-        } else if (sql === UPSERT_SELECTION_SQL) {
+        else if (sql === UPSERT_SELECTION_SQL) {
           const k = `${args[0]}|${args[1]}`;
           const prev = db.selections.get(k);
           db.selections.set(k, { user_id: String(args[0]), session_id: String(args[1]), status: String(args[2]), created_at: prev?.created_at ?? String(args[3]) });

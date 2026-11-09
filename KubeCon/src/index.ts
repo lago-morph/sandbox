@@ -1,7 +1,6 @@
 import { callback, currentUser, login, logout } from "./auth";
 import { runImport } from "./importer";
 import { googleCallback, googleLogin } from "./google";
-import { recordIdentity } from "./identities";
 import type { Env } from "./types";
 
 export const SELECTION_STATUSES = new Set(["favorite", "interested"]);
@@ -50,15 +49,6 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
 
   const path = url.pathname;
   if (path === "/api/me" && req.method === "GET") {
-    // Backfill: remember Cloudflare members' emails (including sessions from before identities existed)
-    // so they can later sign in with Google using the same email.
-    if ((user.prov ?? "cloudflare") === "cloudflare" && user.email) {
-      try {
-        await recordIdentity(env.DB, "cloudflare", user.uid, user.uid, user.email);
-      } catch {
-        // Not fatal.
-      }
-    }
     return json({ userId: user.uid, email: user.email, provider: user.prov ?? "cloudflare" });
   }
 

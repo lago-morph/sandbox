@@ -57,22 +57,22 @@ describe("Google sign-in", () => {
     expect(res.headers.get("set-cookie")).toMatch(/^kp_oauth=.*Path=\/auth/);
   });
 
-  it("links a verified email to the Cloudflare member with that email (same selections)", async () => {
+  it("signs in any Google account as its own user, never linked to a Cloudflare user with the same email", async () => {
     const { env, db } = makeEnv();
-    // The member has used the app with Cloudflare: /api/me records their email.
-    const cfCookie = `kp_session=${await signToken({ uid: "cf-user-1", email: "Owner@Example.com", exp: Math.floor(Date.now() / 1000) + 60 }, env.SESSION_SECRET)}`;
-    await handleApi(new Request(`${ORIGIN}/api/me`, { headers: { cookie: cfCookie } }), env, new URL(`${ORIGIN}/api/me`));
-    expect(db.identities.get("cloudflare|cf-user-1")?.email).toBe("Owner@Example.com");
+    db.sessions.set("s1", { id: "s1" });
+    // A Cloudflare member with the same email already has a selection.
+    db.selections.set("cf-user-1|s1", { user_id: "cf-user-1", session_id: "s1", status: "favorite", created_at: "x" });
 
     const { state, oauth } = await googleLogin(env);
-    const { f, calls } = stubGoogle({ sub: "g-123", email: "owner@example.com", email_verified: true });
+    const { f, calls } = stubGoogle({ sub: "g-123", email: "owner@example.com", email_verified: false });
     const res = await googleCallback(callbackReq(state, oauth), env, f);
     expect(res.status).toBe(302);
     const session = res.headers.getSetCookie().find((c) => c.startsWith("kp_session="))!;
     expect(session).toContain("HttpOnly");
-    const me = await handleApi(new Request(`${ORIGIN}/api/me`, { headers: { cookie: session.split(";")[0] } }), env, new URL(`${ORIGIN}/api/me`));
-    expect(await me.json()).toEqual({ userId: "cf-user-1", email: "owner@example.com", provider: "google" });
-    expect(db.identities.get("google|g-123")?.user_id).toBe("cf-user-1");
+    const cookie = session.split(";")[0];
+    const call = (path: string) => handleApi(new Request(`${ORIGIN}${path}`, { headers: { cookie } }), env, new URL(`${ORIGIN}${path}`));
+    expect(await (await call("/api/me")).json()).toEqual({ userId: "google:g-123", email: "owner@example.com", provider: "google" });
+    expect(await (await call("/api/selections")).json()).toEqual([]);
 
     const token = calls.find((c) => c.url === "https://oauth2.googleapis.com/token")!;
     const body = new URLSearchParams(String(token.init?.body));
@@ -82,24 +82,25 @@ describe("Google sign-in", () => {
     expect(token.init?.redirect).toBe("manual");
   });
 
-  it("refuses an unknown Google account and an unverified email", async () => {
+  it("gives two Google accounts separate profiles", async () => {
     const { env } = makeEnv();
-    let { state, oauth } = await googleLogin(env);
-    const unknown = await googleCallback(callbackReq(state, oauth), env, stubGoogle({ sub: "g-9", email: "stranger@gmail.com", email_verified: true }).f);
-    expect(unknown.status).toBe(403);
-    expect(unknown.headers.get("set-cookie") ?? "").not.toContain("kp_session=");
-
-    ({ state, oauth } = await googleLogin({ ...env, ALLOWED_EMAILS: "stranger@gmail.com" }));
-    const unverified = await googleCallback(callbackReq(state, oauth), { ...env, ALLOWED_EMAILS: "stranger@gmail.com" }, stubGoogle({ sub: "g-9", email: "stranger@gmail.com", email_verified: false }).f);
-    expect(unverified.status).toBe(403);
+    const ids: string[] = [];
+    for (const sub of ["g-1", "g-2"]) {
+      const { state, oauth } = await googleLogin(env);
+      const res = await googleCallback(callbackReq(state, oauth), env, stubGoogle({ sub, email: "same@gmail.com" }).f);
+      const cookie = res.headers.getSetCookie().find((c) => c.startsWith("kp_session="))!.split(";")[0];
+      const me = await handleApi(new Request(`${ORIGIN}/api/me`, { headers: { cookie } }), env, new URL(`${ORIGIN}/api/me`));
+      ids.push(((await me.json()) as { userId: string }).userId);
+    }
+    expect(ids).toEqual(["google:g-1", "google:g-2"]);
   });
 
-  it("allows an ALLOWED_EMAILS Google account as its own user", async () => {
-    const { env, db } = makeEnv({ ALLOWED_EMAILS: "friend@gmail.com" });
+  it("rejects a callback without a Google account id", async () => {
+    const { env } = makeEnv();
     const { state, oauth } = await googleLogin(env);
-    const res = await googleCallback(callbackReq(state, oauth), env, stubGoogle({ sub: "g-7", email: "Friend@gmail.com", email_verified: true }).f);
-    expect(res.status).toBe(302);
-    expect(db.identities.get("google|g-7")?.user_id).toBe("google:g-7");
+    const res = await googleCallback(callbackReq(state, oauth), env, stubGoogle({ email: "x@gmail.com" }).f);
+    expect(res.status).toBe(502);
+    expect(res.headers.get("set-cookie") ?? "").not.toContain("kp_session=");
   });
 
   it("does not accept a Cloudflare kp_oauth cookie on the Google callback", async () => {
