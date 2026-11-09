@@ -42,13 +42,14 @@ describe("touchUser", () => {
     expect((raw.prepare("SELECT last_seen_ms FROM users").get() as any).last_seen_ms).toBe(t0 + 40 * MIN + 1);
   });
 
-  it("reports registered users and users with more than 5 visits", async () => {
+  it("reports registered users and users with more than 3 visits", async () => {
     const { d1 } = sqliteD1();
     const t0 = Date.parse("2026-11-09T08:00:00Z");
     for (let i = 0; i < 6; i++) await touchUser(d1, "heavy", "cloudflare", t0 + i * 20 * MIN); // 6 visits
-    for (let i = 0; i < 5; i++) await touchUser(d1, "five", "google", t0 + i * 20 * MIN); // exactly 5
+    for (let i = 0; i < 4; i++) await touchUser(d1, "four", "google", t0 + i * 20 * MIN); // 4: counted
+    for (let i = 0; i < 3; i++) await touchUser(d1, "three", "google", t0 + i * 20 * MIN); // exactly 3: not counted
     await touchUser(d1, "once", "google", t0);
-    expect(await getStats(d1)).toEqual({ registered: 3, engaged: 1 });
+    expect(await getStats(d1)).toEqual({ registered: 4, engaged: 2 });
   });
 
   it("is recorded on authenticated API requests", async () => {

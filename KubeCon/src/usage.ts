@@ -4,7 +4,7 @@ import type { Provider } from "./auth";
 /** Activity more than this long after the previous activity counts as a new visit. */
 export const VISIT_GAP_MS = 15 * 60 * 1000;
 /** "Engaged" users have more than this many visits. */
-export const ENGAGED_VISITS = 5;
+export const ENGAGED_VISITS = 3;
 
 /** At most one write per user per this interval (users row and activity row), to bound D1 writes. */
 export const WRITE_EVERY_MS = 60 * 1000;
