@@ -70,3 +70,6 @@ button, select, input { font: inherit; color: inherit; }
 .block { padding-right: 34px; }
 .bcheck { position: absolute; top: 0; right: 0; width: 32px; height: 100%; max-height: 40px; border: 0; border-left: 1px solid var(--line); background: rgba(255,255,255,.35); font-size: 15px; font-weight: 700; cursor: pointer; color: var(--fg); padding: 0; }
 .signin-buttons { display: flex; flex-direction: column; gap: 12px; align-items: stretch; max-width: 320px; margin: 24px auto; }
+.admin { margin-top: 8vh; }
+.stats { display: grid; grid-template-columns: 1fr auto; gap: 10px 16px; text-align: left; font-size: 17px; margin: 20px 0; }
+.stats dd { margin: 0; font-weight: 700; font-size: 24px; text-align: right; }
