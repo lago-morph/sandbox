@@ -1,6 +1,7 @@
 import { callback, currentUser, login, logout } from "./auth";
 import { runImport } from "./importer";
 import { adminPage } from "./admin";
+import { scheduledRefresh } from "./scheduled";
 import { touchUser } from "./usage";
 import { googleCallback, googleLogin } from "./google";
 import type { Env } from "./types";
@@ -211,6 +212,10 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
     return withSecurityHeaders(await route(req, env));
+  },
+  /** Automatic schedule refresh; see src/scheduled.ts. The outcome goes to Workers Logs. */
+  async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    ctx.waitUntil(scheduledRefresh(controller.scheduledTime, env).then((msg) => console.log(`scheduled refresh ${msg}`)));
   },
 } satisfies ExportedHandler<Env>;
 
