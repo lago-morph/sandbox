@@ -1,5 +1,7 @@
 import { callback, currentUser, login, logout } from "./auth";
 import { runImport } from "./importer";
+import { adminPage } from "./admin";
+import { touchUser } from "./usage";
 import { googleCallback, googleLogin } from "./google";
 import type { Env } from "./types";
 
@@ -42,6 +44,13 @@ async function listSessions(env: Env) {
 export async function handleApi(req: Request, env: Env, url: URL): Promise<Response> {
   const user = await currentUser(req, env);
   if (!user) return json({ error: "unauthorized" }, 401);
+
+  // Usage tracking for /admin. Never let it break the request.
+  try {
+    await touchUser(env.DB, user.uid, user.prov ?? "cloudflare");
+  } catch (e) {
+    console.error("touchUser failed", (e as Error).message);
+  }
 
   if (req.method !== "GET" && req.method !== "HEAD" && req.headers.get("origin") !== url.origin) {
     return json({ error: "forbidden" }, 403);
@@ -134,6 +143,7 @@ export default {
   async fetch(req: Request, env: Env): Promise<Response> {
     const url = new URL(req.url);
     if (url.pathname.startsWith("/api/")) return handleApi(req, env, url);
+    if (url.pathname === "/admin" && req.method === "GET") return adminPage(req, env);
     if (url.pathname === "/auth/login" && req.method === "GET") return login(req, env);
     if (url.pathname === "/auth/callback" && req.method === "GET") return callback(req, env);
     if (url.pathname === "/auth/google/login" && req.method === "GET") return googleLogin(req, env);

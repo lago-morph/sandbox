@@ -96,14 +96,18 @@ export interface OAuthState {
   verifier: string;
   exp: number;
   prov?: Provider;
+  /** Where to go after sign-in; only values in AFTER_LOGIN are used. */
+  next?: string;
 }
 
+const AFTER_LOGIN = new Set(["/", "/admin"]);
+
 /** Start an OAuth code + PKCE flow: returns the code challenge and the signed kp_oauth cookie value. */
-export async function startOAuth(env: Env, prov: Provider) {
+export async function startOAuth(env: Env, prov: Provider, next = "/") {
   const state = randomB64url();
   const verifier = randomB64url();
   const challenge = b64url(new Uint8Array(await crypto.subtle.digest("SHA-256", enc.encode(verifier))));
-  const oauth = await signToken({ state, verifier, prov, exp: Math.floor(Date.now() / 1000) + OAUTH_TTL }, env.SESSION_SECRET);
+  const oauth = await signToken({ state, verifier, prov, next: AFTER_LOGIN.has(next) ? next : "/", exp: Math.floor(Date.now() / 1000) + OAUTH_TTL }, env.SESSION_SECRET);
   return { state, challenge, cookie: cookie(OAUTH_COOKIE, oauth, OAUTH_TTL, "/auth") };
 }
 
@@ -115,10 +119,16 @@ export async function checkOAuthState(req: Request, env: Env, prov: Provider): P
   return oauth.verifier;
 }
 
-/** Successful sign-in: set kp_session, clear kp_oauth, redirect home. */
-export async function signedIn(env: Env, uid: string, email: string, prov: Provider): Promise<Response> {
+/** Where the in-progress sign-in should return to ("/" unless an allowed `next` was requested). */
+export async function oauthNext(req: Request, env: Env): Promise<string> {
+  const oauth = await verifyToken<OAuthState>(getCookie(req, OAUTH_COOKIE), env.SESSION_SECRET);
+  return oauth?.next && AFTER_LOGIN.has(oauth.next) ? oauth.next : "/";
+}
+
+/** Successful sign-in: set kp_session, clear kp_oauth, redirect to `next` (default home). */
+export async function signedIn(env: Env, uid: string, email: string, prov: Provider, next = "/"): Promise<Response> {
   const session = await signToken({ uid, email, prov, exp: Math.floor(Date.now() / 1000) + SESSION_TTL }, env.SESSION_SECRET);
-  const headers = new Headers({ location: "/", "cache-control": "no-store" });
+  const headers = new Headers({ location: AFTER_LOGIN.has(next) ? next : "/", "cache-control": "no-store" });
   headers.append("set-cookie", cookie(SESSION_COOKIE, session, SESSION_TTL));
   headers.append("set-cookie", cookie(OAUTH_COOKIE, "", 0, "/auth"));
   return new Response(null, { status: 302, headers });
@@ -134,7 +144,8 @@ export function redirectUri(req: Request): string {
 
 /** GET /auth/login (R-5.6). */
 export async function login(req: Request, env: Env): Promise<Response> {
-  const { state, challenge, cookie: oauthCookie } = await startOAuth(env, "cloudflare");
+  const next = new URL(req.url).searchParams.get("next") ?? "/";
+  const { state, challenge, cookie: oauthCookie } = await startOAuth(env, "cloudflare", next);
   const q = new URLSearchParams({
     response_type: "code",
     client_id: env.OAUTH_CLIENT_ID,
@@ -249,7 +260,7 @@ export async function callback(req: Request, env: Env, fetchImpl: typeof fetch =
       return errorPage(403, "Not a member of this Cloudflare account");
     }
 
-    return signedIn(env, uid, email, "cloudflare");
+    return signedIn(env, uid, email, "cloudflare", await oauthNext(req, env));
   } catch {
     return errorPage(502, "Sign-in failed while talking to Cloudflare.");
   }
