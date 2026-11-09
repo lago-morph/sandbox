@@ -1,6 +1,6 @@
 /** /admin: usage stats, for Cloudflare sign-ins only (account members or ALLOWED_EMAILS). */
 import { currentUser } from "./auth";
-import { ENGAGED_VISITS, getStats } from "./usage";
+import { ENGAGED_MIN_VISITS, getStats } from "./usage";
 import type { Env } from "./types";
 
 function page(status: number, body: string): Response {
@@ -27,7 +27,7 @@ export async function adminPage(req: Request, env: Env): Promise<Response> {
   return page(200, `<h1>Usage</h1>
 <dl class="stats">
   <dt>Registered users</dt><dd id="registered">${s.registered}</dd>
-  <dt>Used the app more than ${ENGAGED_VISITS} times</dt><dd id="engaged">${s.engaged}</dd>
+  <dt>Used the app ${ENGAGED_MIN_VISITS} or more times</dt><dd id="engaged">${s.engaged}</dd>
 </dl>
 <p class="meta">A user is registered once they have signed in. A new use is counted when they are active more than 15 minutes after their previous activity. As of ${asOf} Salt Lake City time.</p>
 <p><a class="btn" href="/">Back to the planner</a></p>`);
