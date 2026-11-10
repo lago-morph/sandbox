@@ -1,4 +1,4 @@
-import { layoutDay } from "../layout";
+import { durationBarPercent, layoutDay } from "../layout";
 
 interface S {
   id: string; source: string; title: string; day: string; startsAt: string; endsAt: string;
@@ -118,7 +118,9 @@ function renderList() {
   $("list").innerHTML = shown.map((s) => {
     const m = marks.get(s.id);
     const dayLabel = all ? `${esc(DAYS.find(([k]) => k === s.day)?.[1] ?? s.day)} ` : "";
+    const bar = durationBarPercent(s.startsAt, s.endsAt);
     return `<li class="item${m === "favorite" ? " sel" : m === "interested" ? " int" : ""}" data-id="${esc(s.id)}">
+      ${bar > 0 ? `<span class="dur" style="width:${bar.toFixed(2)}%" aria-hidden="true"></span>` : ""}
       <div class="body" data-open="${esc(s.id)}">
         <div class="time">${dayLabel}${hm(s.startsAt)}–${hm(s.endsAt)}${slidesDot(s)}</div>
         <div class="title">${esc(s.title)}</div>

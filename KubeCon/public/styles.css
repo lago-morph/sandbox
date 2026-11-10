@@ -32,7 +32,9 @@ button, select, input { font: inherit; color: inherit; }
 .check input { width: 20px; height: 20px; }
 .meta { color: var(--muted); font-size: 13px; padding: 6px 12px 0; margin: 0; }
 .list { list-style: none; margin: 0; padding: 6px 8px 12px; }
-.item { display: flex; gap: 8px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; margin: 6px 0; padding: 8px 6px 8px 10px; }
+.item { position: relative; overflow: hidden; display: flex; gap: 8px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; margin: 6px 0; padding: 10px 6px 8px 10px; }
+/* Browse only: bar along the top edge, full width = 60 minutes or more, starting at the left. */
+.item .dur { position: absolute; top: 0; left: 0; height: 4px; background: var(--block-line); }
 .item.sel { background: var(--sel); border-color: var(--accent); }
 .item .body { flex: 1; min-width: 0; cursor: pointer; }
 .item .time { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 13px; }
