@@ -105,14 +105,33 @@ function sub(s: S): string {
 /** Days with conference tracks, where the multi-select track filter applies. */
 const TRACK_DAYS = new Set(["2026-11-10", "2026-11-11", "2026-11-12"]);
 /** Tracks selected in the Tracks sheet; empty means all tracks. Applies to Browse, Tue–Thu sessions only. */
-const trackFilter = new Set<string>();
+const trackFilter = new Set<string>(loadTrackFilter());
+
+/** The Tracks selection is remembered on this device only (a viewer convenience; never required). */
+const TRACKS_KEY = "kp_tracks";
+function loadTrackFilter(): string[] {
+  try {
+    const v = JSON.parse(localStorage.getItem("kp_tracks") ?? "[]");
+    return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+}
+function saveTrackFilter() {
+  try {
+    localStorage.setItem(TRACKS_KEY, JSON.stringify([...trackFilter]));
+  } catch {
+    // Storage may be unavailable (private mode); the filter still works for this page view.
+  }
+}
 /** Start time and screen position of the Browse card at mid-screen when the Tracks sheet opened. */
 let trackAnchor: { startsAt: string; top: number } | null = null;
 
 function renderList() {
   const q = $<HTMLInputElement>("q").value.trim().toLowerCase();
   const all = $<HTMLInputElement>("alldays").checked;
-  const track = $<HTMLSelectElement>("track").value;
+  // On Tue–Thu the Tracks button replaces the single-track dropdown, so the dropdown is ignored there.
+  const track = TRACK_DAYS.has(day) ? "" : $<HTMLSelectElement>("track").value;
   const ev = $<HTMLSelectElement>("event").value;
   const rows = sessions.filter((s) =>
     (all || s.day === day) &&
@@ -211,6 +230,7 @@ function render() {
 function renderTracksButton() {
   const btn = $<HTMLButtonElement>("tracks-btn");
   btn.hidden = view !== "browse" || !TRACK_DAYS.has(day);
+  $("track").hidden = TRACK_DAYS.has(day);
   btn.textContent = trackFilter.size ? `Tracks (${trackFilter.size})` : "Tracks";
   btn.classList.toggle("on", trackFilter.size > 0);
 }
@@ -390,10 +410,12 @@ function wire() {
     const t = box.dataset.track;
     if (!t) return;
     if (box.checked) trackFilter.add(t); else trackFilter.delete(t);
+    saveTrackFilter();
     tracksChanged();
   });
   $("tracks-clear").addEventListener("click", () => {
     trackFilter.clear();
+    saveTrackFilter();
     renderTracksList();
     tracksChanged();
   });
