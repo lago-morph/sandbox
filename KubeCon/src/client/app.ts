@@ -184,10 +184,10 @@ function renderGrid() {
     const s = byId.get(b.id)!;
     const conflict = b.conflictsWith.length > 0;
     const h = Math.max(20, (b.end - b.start) * PX_PER_MIN - 2);
-    const short = h < 40; // one line: time, badge, truncated title
+    const short = h < 40; // one line: time, truncated title
     html += `<div class="block${conflict ? " conflict" : ""}${short ? " short" : ""}" data-open="${esc(s.id)}"
       style="top:${(b.start - lo) * PX_PER_MIN}px;height:${h}px;left:${(b.col / b.cols) * 100}%;width:${100 / b.cols}%">
-      <div class="bh">${hm(s.startsAt)}${slidesDot(s)}${conflict ? ` <span class="badge">Conflict</span>` : ""}</div>
+      <div class="bh">${hm(s.startsAt)}${slidesDot(s)}</div>
       <div class="bt">${esc(s.title)}</div></div>`;
   }
   grid.innerHTML = html;
