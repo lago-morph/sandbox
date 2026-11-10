@@ -131,6 +131,11 @@ function renderList() {
     + (rows.length === 0 ? `<li class="empty">No sessions match.</li>` : "");
 }
 
+/** Checkmark drawn as SVG so it sits exactly in the middle of the round button (a text glyph does not). */
+const CHECK_ICON =
+  '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">' +
+  '<path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
 function markButtons(id: string): string {
   const m = marks.get(id);
   const fav = m === "favorite";
@@ -139,7 +144,7 @@ function markButtons(id: string): string {
     <button class="toggle${fav ? " on" : ""}" data-mark="favorite" data-id="${esc(id)}" aria-pressed="${fav}"
       aria-label="${fav ? "Remove favorite" : "Favorite: plan to attend"}">${fav ? "★" : "☆"}</button>
     <button class="toggle check${int ? " on" : ""}" data-mark="interested" data-id="${esc(id)}" aria-pressed="${int}"
-      aria-label="${int ? "Remove interested" : "Interested: watch the recording later"}">✓</button>
+      aria-label="${int ? "Remove interested" : "Interested: watch the recording later"}">${CHECK_ICON}</button>
   </div>`;
 }
 

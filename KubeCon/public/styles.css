@@ -39,7 +39,8 @@ button, select, input { font: inherit; color: inherit; }
 .item .title { font-weight: 600; overflow-wrap: anywhere; }
 .item .sub { color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
 .marks { flex: none; display: flex; flex-direction: column; gap: 6px; align-self: center; }
-.toggle { flex: none; width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: var(--card); font-size: 20px; cursor: pointer; }
+.toggle { flex: none; width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: var(--card); font-size: 20px; line-height: 1; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; padding: 0; }
+.toggle svg { display: block; }
 .toggle.on { background: var(--accent); color: #fff; border-color: var(--accent); }
 .foot { color: var(--muted); font-size: 13px; padding: 8px 12px 40px; }
 .grid { position: relative; margin: 8px 8px 0 46px; }
@@ -63,7 +64,7 @@ button, select, input { font: inherit; color: inherit; }
 .block.short { display: flex; gap: 4px; align-items: center; padding-top: 0; padding-bottom: 0; }
 .block.short .bh { flex: none; }
 .block.short .bt { display: block; flex: 1; min-width: 0; white-space: nowrap; text-overflow: ellipsis; }
-.toggle.check { font-size: 18px; font-weight: 700; }
+.toggle.check { color: var(--fg); }
 .toggle.check.on { background: var(--int-line); border-color: var(--int-line); color: #fff; }
 .item.int { background: var(--int); border-color: var(--int-line); }
 .detail-marks { display: flex; gap: 8px; flex-wrap: wrap; }
