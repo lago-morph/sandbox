@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { layoutDay } from "../src/layout";
+import { durationBarPercent, durationMinutes, layoutDay } from "../src/layout";
 
 const s = (id: string, start: string, end: string, endDay = "2026-11-09") => ({
   id,
@@ -44,5 +44,20 @@ describe("layoutDay", () => {
     const b = byId(layoutDay([s("short", "09:00", "09:30"), s("long", "09:00", "11:00")]));
     expect(b.long.col).toBe(0);
     expect(b.short.col).toBe(1);
+  });
+});
+
+describe("duration bar", () => {
+  const t = (hm: string, day = "2026-11-09") => `${day}T${hm}:00`;
+  it("is full width at 60 minutes or more and proportional below that", () => {
+    expect(durationBarPercent(t("09:00"), t("10:00"))).toBe(100);
+    expect(durationBarPercent(t("09:00"), t("17:00"))).toBe(100);
+    expect(durationBarPercent(t("09:00"), t("09:30"))).toBe(50);
+    expect(durationBarPercent(t("09:00"), t("09:05"))).toBeCloseTo(100 / 12, 6);
+    expect(durationBarPercent(t("09:55"), t("10:20"))).toBeCloseTo((25 / 60) * 100, 6);
+  });
+  it("handles sessions that end after midnight or have no length", () => {
+    expect(durationMinutes(t("23:30"), t("00:30", "2026-11-10"))).toBe(30);
+    expect(durationBarPercent(t("09:00"), t("09:00"))).toBe(0);
   });
 });

@@ -1,4 +1,4 @@
-import { layoutDay } from "../layout";
+import { durationBarPercent, layoutDay } from "../layout";
 
 interface S {
   id: string; source: string; title: string; day: string; startsAt: string; endsAt: string;
@@ -102,6 +102,13 @@ function sub(s: S): string {
   return where;
 }
 
+/** Days with conference tracks, where the multi-select track filter applies. */
+const TRACK_DAYS = new Set(["2026-11-10", "2026-11-11", "2026-11-12"]);
+/** Tracks selected in the Tracks sheet; empty means all tracks. Applies to Browse, Tue–Thu sessions only. */
+const trackFilter = new Set<string>();
+/** Start time and screen position of the Browse card at mid-screen when the Tracks sheet opened. */
+let trackAnchor: { startsAt: string; top: number } | null = null;
+
 function renderList() {
   const q = $<HTMLInputElement>("q").value.trim().toLowerCase();
   const all = $<HTMLInputElement>("alldays").checked;
@@ -110,6 +117,7 @@ function renderList() {
   const rows = sessions.filter((s) =>
     (all || s.day === day) &&
     (!track || s.track === track) &&
+    (trackFilter.size === 0 || !TRACK_DAYS.has(s.day) || trackFilter.has(s.track)) &&
     (!ev || s.events.includes(ev)) &&
     (!q || s.title.toLowerCase().includes(q) || s.speakerText.toLowerCase().includes(q)),
   );
@@ -118,7 +126,9 @@ function renderList() {
   $("list").innerHTML = shown.map((s) => {
     const m = marks.get(s.id);
     const dayLabel = all ? `${esc(DAYS.find(([k]) => k === s.day)?.[1] ?? s.day)} ` : "";
+    const bar = durationBarPercent(s.startsAt, s.endsAt);
     return `<li class="item${m === "favorite" ? " sel" : m === "interested" ? " int" : ""}" data-id="${esc(s.id)}">
+      ${bar > 0 ? `<span class="dur" style="width:${bar.toFixed(2)}%" aria-hidden="true"></span>` : ""}
       <div class="body" data-open="${esc(s.id)}">
         <div class="time">${dayLabel}${hm(s.startsAt)}–${hm(s.endsAt)}${slidesDot(s)}</div>
         <div class="title">${esc(s.title)}</div>
@@ -131,6 +141,11 @@ function renderList() {
     + (rows.length === 0 ? `<li class="empty">No sessions match.</li>` : "");
 }
 
+/** Checkmark drawn as SVG so it sits exactly in the middle of the round button (a text glyph does not). */
+const CHECK_ICON =
+  '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">' +
+  '<path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
 function markButtons(id: string): string {
   const m = marks.get(id);
   const fav = m === "favorite";
@@ -139,7 +154,7 @@ function markButtons(id: string): string {
     <button class="toggle${fav ? " on" : ""}" data-mark="favorite" data-id="${esc(id)}" aria-pressed="${fav}"
       aria-label="${fav ? "Remove favorite" : "Favorite: plan to attend"}">${fav ? "★" : "☆"}</button>
     <button class="toggle check${int ? " on" : ""}" data-mark="interested" data-id="${esc(id)}" aria-pressed="${int}"
-      aria-label="${int ? "Remove interested" : "Interested: watch the recording later"}">✓</button>
+      aria-label="${int ? "Remove interested" : "Interested: watch the recording later"}">${CHECK_ICON}</button>
   </div>`;
 }
 
@@ -173,8 +188,7 @@ function renderGrid() {
     html += `<div class="block${conflict ? " conflict" : ""}${short ? " short" : ""}" data-open="${esc(s.id)}"
       style="top:${(b.start - lo) * PX_PER_MIN}px;height:${h}px;left:${(b.col / b.cols) * 100}%;width:${100 / b.cols}%">
       <div class="bh">${hm(s.startsAt)}${slidesDot(s)}${conflict ? ` <span class="badge">Conflict</span>` : ""}</div>
-      <div class="bt">${esc(s.title)}</div>
-      <button class="bcheck" data-mark="interested" data-id="${esc(s.id)}" aria-label="Move to interested (watch later)">✓</button></div>`;
+      <div class="bt">${esc(s.title)}</div></div>`;
   }
   grid.innerHTML = html;
 }
@@ -191,6 +205,64 @@ function render() {
   if (view === "browse") renderList();
   else renderGrid();
   if (openId) renderDetailToggle();
+  renderTracksButton();
+}
+
+function renderTracksButton() {
+  const btn = $<HTMLButtonElement>("tracks-btn");
+  btn.hidden = view !== "browse" || !TRACK_DAYS.has(day);
+  btn.textContent = trackFilter.size ? `Tracks (${trackFilter.size})` : "Tracks";
+  btn.classList.toggle("on", trackFilter.size > 0);
+}
+
+/** The Browse card at the middle of the screen (or the last one above it). */
+function midScreenCard(): HTMLElement | null {
+  const mid = window.innerHeight / 2;
+  const cards = [...document.querySelectorAll<HTMLElement>("#list .item")];
+  return cards.find((el) => el.getBoundingClientRect().bottom >= mid) ?? cards[cards.length - 1] ?? null;
+}
+
+/** After the list changes, put the first card at or after the anchor time where the anchor card was. */
+function keepAnchor() {
+  if (!trackAnchor) return;
+  const cards = [...document.querySelectorAll<HTMLElement>("#list .item")];
+  if (!cards.length) return;
+  const target = cards.find((el) => (byId.get(el.dataset.id!)?.startsAt ?? "") >= trackAnchor!.startsAt) ?? cards[cards.length - 1];
+  window.scrollTo(0, Math.max(0, window.scrollY + target.getBoundingClientRect().top - trackAnchor.top));
+}
+
+/** Sort tracks by name, ignoring leading emoji and symbols ("⚡ Lightning Talks" sorts under L). */
+const sortKey = (t: string) => t.replace(/^[^\p{L}\p{N}]+/u, "");
+
+function renderTracksList() {
+  const tracks = [...new Set(sessions.filter((s) => TRACK_DAYS.has(s.day)).map((s) => s.track))]
+    .sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
+  const counts = new Map<string, number>();
+  for (const s of sessions) if (s.day === day) counts.set(s.track, (counts.get(s.track) ?? 0) + 1);
+  $("tracks-list").innerHTML = tracks.map((t) => {
+    const n = counts.get(t) ?? 0;
+    return `<label class="track-row${n ? "" : " none"}"><input type="checkbox" data-track="${esc(t)}"${trackFilter.has(t) ? " checked" : ""}>
+      <span class="track-name">${esc(t)}</span><span class="meta">${n}</span></label>`;
+  }).join("");
+}
+
+function openTracks() {
+  const card = midScreenCard();
+  const s = card ? byId.get(card.dataset.id!) : undefined;
+  trackAnchor = card && s ? { startsAt: s.startsAt, top: card.getBoundingClientRect().top } : null;
+  renderTracksList();
+  $("tracks").hidden = false;
+}
+
+function closeTracks() {
+  $("tracks").hidden = true;
+  trackAnchor = null;
+}
+
+function tracksChanged() {
+  renderList();
+  renderTracksButton();
+  keepAnchor();
 }
 
 /** Tapping a mark sets it, or clears it if it is already the current state. */
@@ -309,7 +381,22 @@ function wire() {
     }
     if (t.id === "close" || t.id === "detail") closeDetail();
   });
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDetail(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeDetail(); closeTracks(); } });
+  $("tracks-btn").addEventListener("click", openTracks);
+  for (const id of ["tracks-close", "tracks-done"]) $(id).addEventListener("click", closeTracks);
+  $("tracks").addEventListener("click", (e) => { if (e.target === $("tracks")) closeTracks(); });
+  $("tracks-list").addEventListener("change", (e) => {
+    const box = e.target as HTMLInputElement;
+    const t = box.dataset.track;
+    if (!t) return;
+    if (box.checked) trackFilter.add(t); else trackFilter.delete(t);
+    tracksChanged();
+  });
+  $("tracks-clear").addEventListener("click", () => {
+    trackFilter.clear();
+    renderTracksList();
+    tracksChanged();
+  });
   for (const id of ["q", "alldays", "track", "event"]) $(id).addEventListener("input", renderList);
   $("refresh").addEventListener("click", refresh);
 }

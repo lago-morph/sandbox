@@ -56,3 +56,15 @@ export function layoutDay(items: LayoutInput[]): LayoutBlock[] {
   flush();
   return out;
 }
+
+/** Session length in minutes from local wall-clock strings; a session ending on a later day runs to 24:00. */
+export function durationMinutes(startsAt: string, endsAt: string): number {
+  const start = minutes(startsAt);
+  const end = endsAt.slice(0, 10) > startsAt.slice(0, 10) ? 1440 : minutes(endsAt);
+  return Math.max(0, end - start);
+}
+
+/** Width of the Browse duration bar, in percent: 60 minutes or more fills the card. */
+export function durationBarPercent(startsAt: string, endsAt: string): number {
+  return Math.min(100, (durationMinutes(startsAt, endsAt) / 60) * 100);
+}
