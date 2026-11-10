@@ -43,6 +43,7 @@
       </div>
       <p class="meta" id="count"></p>
       <ul id="list" class="list"></ul>
+      <button id="tracks-btn" class="fab" type="button" hidden>Tracks</button>
     </section>
 
     <section id="mine" hidden>
@@ -59,6 +60,18 @@
     <div class="sheet-inner">
       <button id="close" class="btn close" aria-label="Close">✕</button>
       <div id="detail-body"></div>
+    </div>
+  </div>
+  <div id="tracks" class="sheet tracks-sheet" hidden>
+    <div class="sheet-inner" role="dialog" aria-modal="true" aria-labelledby="tracks-title">
+      <button id="tracks-close" class="btn close" type="button" aria-label="Close">✕</button>
+      <h2 id="tracks-title">Tracks</h2>
+      <p class="meta">Filters Browse for Tue–Thu. Nothing selected shows all tracks. Counts are for the selected day.</p>
+      <div id="tracks-list" class="tracks-list"></div>
+      <p class="sheet-actions">
+        <button id="tracks-clear" class="btn" type="button">Show all tracks</button>
+        <button id="tracks-done" class="btn primary" type="button">Done</button>
+      </p>
     </div>
   </div>
   <div id="toast" class="toast" hidden></div>
