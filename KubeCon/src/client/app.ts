@@ -173,8 +173,7 @@ function renderGrid() {
     html += `<div class="block${conflict ? " conflict" : ""}${short ? " short" : ""}" data-open="${esc(s.id)}"
       style="top:${(b.start - lo) * PX_PER_MIN}px;height:${h}px;left:${(b.col / b.cols) * 100}%;width:${100 / b.cols}%">
       <div class="bh">${hm(s.startsAt)}${slidesDot(s)}${conflict ? ` <span class="badge">Conflict</span>` : ""}</div>
-      <div class="bt">${esc(s.title)}</div>
-      <button class="bcheck" data-mark="interested" data-id="${esc(s.id)}" aria-label="Move to interested (watch later)">✓</button></div>`;
+      <div class="bt">${esc(s.title)}</div></div>`;
   }
   grid.innerHTML = html;
 }
