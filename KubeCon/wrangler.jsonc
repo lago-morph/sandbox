@@ -8,7 +8,7 @@
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
-    "run_worker_first": ["/api/*", "/auth/*", "/admin"]
+    "run_worker_first": ["/api/*", "/auth/*", "/admin", "/export/*"]
   },
   "d1_databases": [
     {
@@ -23,7 +23,7 @@
     "ALLOWED_EMAILS": ""
   },
   "observability": { "enabled": true },
-  // Auto-refresh the schedule every 2 hours from 06:00 to 16:00 Salt Lake City time (MST = UTC-7)
-  // on 8-12 November. src/scheduled.ts also limits runs to the 2026 conference days.
-  "triggers": { "crons": ["0 13-23/2 8-12 11 *"] }
+  // No scheduled refresh: the schedule is refreshed only with "Refresh schedule".
+  // An empty list removes any cron triggers left from earlier deploys.
+  "triggers": { "crons": [] }
 }

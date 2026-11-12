@@ -445,8 +445,45 @@ function wireActivity() {
   });
 }
 
+/** Share button: create a 5-minute download link for this user's marked sessions. */
+async function openExport() {
+  const input = $<HTMLInputElement>("export-url");
+  input.value = "Creating link…";
+  $("export-expiry").textContent = "";
+  $("export").hidden = false;
+  try {
+    const res = await api("/api/export", { method: "POST" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const { url, expiresAt } = (await res.json()) as { url: string; expiresAt: string };
+    input.value = url;
+    const t = new Intl.DateTimeFormat("en-US", { timeZone: "America/Denver", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(expiresAt));
+    $("export-expiry").textContent = `Valid for 5 minutes, until ${t} Salt Lake City time.`;
+  } catch {
+    input.value = "";
+    $("export-expiry").textContent = "Could not create a link. Check your connection and try again.";
+  }
+}
+
+async function copyExportLink() {
+  const input = $<HTMLInputElement>("export-url");
+  if (!/^https:\/\//.test(input.value)) return;
+  try {
+    await navigator.clipboard.writeText(input.value);
+  } catch {
+    input.focus();
+    input.select();
+    input.setSelectionRange(0, input.value.length);
+    document.execCommand("copy");
+  }
+  toast("Link copied");
+}
+
 async function main() {
   wire();
+  $("share").addEventListener("click", openExport);
+  $("export-copy").addEventListener("click", copyExportLink);
+  $("export-close").addEventListener("click", () => ($("export").hidden = true));
+  $("export").addEventListener("click", (e) => { if (e.target === $("export")) $("export").hidden = true; });
   let me: { email: string };
   try {
     const res = await fetch("/api/me", { credentials: "same-origin" });

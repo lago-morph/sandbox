@@ -1,7 +1,7 @@
 import { callback, currentUser, login, logout } from "./auth";
 import { runImport } from "./importer";
 import { adminPage } from "./admin";
-import { scheduledRefresh } from "./scheduled";
+import { createExportLink, exportDownload } from "./export";
 import { touchUser } from "./usage";
 import { googleCallback, googleLogin } from "./google";
 import type { Env } from "./types";
@@ -122,6 +122,9 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
   // Activity ping from the client (activity was recorded above). Who and when only.
   if (path === "/api/ping" && req.method === "POST") return new Response(null, { status: 204 });
 
+  // Short-lived download link for this user's favorite and interested sessions (src/export.ts).
+  if (path === "/api/export" && req.method === "POST") return json(await createExportLink(env, url.origin, user.uid));
+
   if (path === "/api/me" && req.method === "GET") {
     return json({ userId: user.uid, email: user.email, provider: user.prov ?? "cloudflare" });
   }
@@ -214,10 +217,6 @@ export default {
   async fetch(req: Request, env: Env): Promise<Response> {
     return withSecurityHeaders(await route(req, env));
   },
-  /** Automatic schedule refresh; see src/scheduled.ts. The outcome goes to Workers Logs. */
-  async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
-    ctx.waitUntil(scheduledRefresh(controller.scheduledTime, env).then((msg) => console.log(`scheduled refresh ${msg}`)));
-  },
 } satisfies ExportedHandler<Env>;
 
 async function route(req: Request, env: Env): Promise<Response> {
@@ -225,6 +224,9 @@ async function route(req: Request, env: Env): Promise<Response> {
     const url = new URL(req.url);
     if (url.pathname.startsWith("/api/")) return handleApi(req, env, url);
     if (url.pathname === "/admin" && req.method === "GET") return adminPage(req, env);
+    const exp = url.pathname.match(/^\/export\/([A-Za-z0-9_.-]+)$/);
+    if (exp && req.method === "GET") return exportDownload(exp[1], env);
+    if (url.pathname.startsWith("/export/")) return new Response("Not found", { status: 404 });
     if (url.pathname === "/auth/login" && req.method === "GET") return login(req, env);
     if (url.pathname === "/auth/callback" && req.method === "GET") return callback(req, env);
     if (url.pathname === "/auth/google/login" && req.method === "GET") return googleLogin(req, env);
