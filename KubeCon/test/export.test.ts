@@ -69,6 +69,13 @@ describe("download link", () => {
     expect(s100.categories).toEqual([{ category: "All Sessions", item: "Observability" }]);
     expect(s100.questionAnswers).toEqual([{ question: "Presentation Slides", answer: "https://sessionize.com/download/abc~slides.pdf" }]);
     expect(body.notFoundInFeeds).toEqual(["gone"]);
+    // Each record links to the Sessionize endpoint it came from (there is no per-session endpoint).
+    expect(body.sessions.map((x: any) => x.sourceUrl)).toEqual([
+      "https://sessionize.com/api/v2/svi82w6c/view/All",
+      "https://sessionize.com/api/v2/ayajbd6b/view/All",
+      "https://sessionize.com/api/v2/svi82w6c/view/All",
+    ]);
+    expect(body.sources.map((x: any) => x.feed)).toEqual(["main", "colocated", "maintainer", "sponsor"]);
     expect(JSON.stringify(body)).not.toContain('"300"'); // another user's selection
     expect(raw.prepare("SELECT COUNT(*) AS n FROM sessions").get()).toEqual(before);
   });

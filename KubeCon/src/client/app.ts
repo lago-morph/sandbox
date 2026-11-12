@@ -481,6 +481,7 @@ async function copyExportLink() {
 async function main() {
   wire();
   $("share").addEventListener("click", openExport);
+  $("notice-ok").addEventListener("click", () => ($("notice").hidden = true));
   $("export-copy").addEventListener("click", copyExportLink);
   $("export-close").addEventListener("click", () => ($("export").hidden = true));
   $("export").addEventListener("click", (e) => { if (e.target === $("export")) $("export").hidden = true; });
@@ -502,6 +503,26 @@ async function main() {
     marks = new Map(rows.map((r) => [r.id, r.status]));
   }
   render();
+  showNotices();
+}
+
+/**
+ * "What's new": show the first unseen notice, and record it as seen as soon as it is shown,
+ * so each user sees it exactly once (on whichever device they open next).
+ */
+async function showNotices() {
+  try {
+    const res = await api("/api/notices");
+    if (!res.ok) return;
+    const [n] = (await res.json()) as { id: string; title: string; text: string }[];
+    if (!n) return;
+    $("notice-title").textContent = n.title;
+    $("notice-text").textContent = n.text;
+    $("notice").hidden = false;
+    await api(`/api/notices/${encodeURIComponent(n.id)}/seen`, { method: "POST" });
+  } catch {
+    // Notices are optional.
+  }
 }
 
 main();

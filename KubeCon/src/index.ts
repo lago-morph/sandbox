@@ -2,6 +2,7 @@ import { callback, currentUser, login, logout } from "./auth";
 import { runImport } from "./importer";
 import { adminPage } from "./admin";
 import { createExportLink, exportDownload } from "./export";
+import { markNoticeSeen, unseenNotices } from "./notices";
 import { touchUser } from "./usage";
 import { googleCallback, googleLogin } from "./google";
 import type { Env } from "./types";
@@ -124,6 +125,13 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
 
   // Short-lived download link for this user's favorite and interested sessions (src/export.ts).
   if (path === "/api/export" && req.method === "POST") return json(await createExportLink(env, url.origin, user.uid));
+
+  // "What's new" notices: each shown exactly once per user (src/notices.ts).
+  if (path === "/api/notices" && req.method === "GET") return json(await unseenNotices(env.DB, user.uid));
+  const seen = path.match(/^\/api\/notices\/([a-z0-9-]{1,40})\/seen$/);
+  if (seen && req.method === "POST") {
+    return (await markNoticeSeen(env.DB, user.uid, seen[1])) ? new Response(null, { status: 204 }) : json({ error: "not found" }, 404);
+  }
 
   if (path === "/api/me" && req.method === "GET") {
     return json({ userId: user.uid, email: user.email, provider: user.prov ?? "cloudflare" });

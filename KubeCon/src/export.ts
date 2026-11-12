@@ -51,7 +51,7 @@ export async function exportDownload(token: string, env: Env, fetchImpl: typeof 
     .all<{ session_id: string; status: string }>();
   const wanted = new Map((results ?? []).map((r) => [r.session_id, r.status]));
 
-  let feeds: { kind: FeedKind; data: Raw }[];
+  let feeds: { kind: FeedKind; data: Raw; sourceUrl: string }[];
   try {
     feeds = await Promise.all(
       FEEDS.map(async ({ kind, code }) => {
@@ -62,7 +62,7 @@ export async function exportDownload(token: string, env: Env, fetchImpl: typeof 
         if (!res.ok) throw new Error(`Feed "${kind}" failed: HTTP ${res.status}`);
         const data = (await res.json()) as Raw;
         if (!data || !Array.isArray(data.sessions)) throw new Error(`Feed "${kind}": unexpected JSON shape`);
-        return { kind, data };
+        return { kind, data, sourceUrl: `https://sessionize.com/api/v2/${code}/view/All` };
       }),
     );
   } catch (e) {
@@ -72,7 +72,7 @@ export async function exportDownload(token: string, env: Env, fetchImpl: typeof 
 
   const out: Raw[] = [];
   const found = new Set<string>();
-  for (const { kind, data } of feeds) {
+  for (const { kind, data, sourceUrl } of feeds) {
     const speakers = new Map<string, Raw>((data.speakers ?? []).map((s: Raw) => [String(s.id), s]));
     const rooms = new Map<string, Raw>((data.rooms ?? []).map((r: Raw) => [String(r.id), r]));
     const questions = new Map<string, Raw>((data.questions ?? []).map((q: Raw) => [String(q.id), q]));
@@ -87,6 +87,9 @@ export async function exportDownload(token: string, env: Env, fetchImpl: typeof 
       out.push({
         status,
         feed: kind,
+        // Sessionize has no per-session endpoint; this is the public endpoint the record comes
+        // from, where it is the entry in "sessions" whose id is session.id.
+        sourceUrl,
         session: s,
         speakers: (s.speakers ?? []).map((sid: unknown) => speakers.get(String(sid)) ?? { id: String(sid) }),
         room: s.roomId == null ? null : rooms.get(String(s.roomId)) ?? { id: s.roomId },
@@ -106,6 +109,7 @@ export async function exportDownload(token: string, env: Env, fetchImpl: typeof 
       event: "KubeCon + CloudNativeCon North America 2026",
       generatedAt,
       source: "Sessionize public API, fetched live when this file was downloaded",
+      sources: feeds.map((f) => ({ feed: f.kind, url: f.sourceUrl })),
       timeZone: "Session times are local Salt Lake City wall-clock time (America/Denver, MST = UTC-7)",
       counts: {
         favorite: out.filter((x) => x.status === "favorite").length,
