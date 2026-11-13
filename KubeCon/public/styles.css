@@ -98,3 +98,6 @@ button, select, input { font: inherit; color: inherit; }
 .notice p { margin: 6px 0 10px; }
 .notice .btn { float: right; }
 .notice::after { content: ""; display: block; clear: both; }
+/* Bell (email summaries) button and its sheet. */
+.top .icon-btn.on { color: #fbbf24; }
+.notify-status { font-weight: 600; }

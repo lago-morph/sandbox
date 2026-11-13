@@ -478,8 +478,71 @@ async function copyExportLink() {
   toast("Link copied");
 }
 
+/** Bell button: opt in or out of nightly email summaries. */
+interface NotifyState { status: "off" | "pending" | "active"; email: string; open: boolean; lastRun: string }
+let notifyState: NotifyState | null = null;
+
+function renderNotify() {
+  const s = notifyState;
+  const btn = $<HTMLButtonElement>("notify-toggle");
+  if (!s) return;
+  $("notify-last").textContent = s.lastRun;
+  const who = s.email ? ` (${s.email})` : "";
+  const status: Record<NotifyState["status"], string> = {
+    off: "Summaries are off.",
+    pending: `Check your inbox${who}: confirm the email we sent to turn summaries on.`,
+    active: `Summaries are on${who}.`,
+  };
+  $("notify-status").textContent = !s.open && s.status !== "active" ? "Nightly summaries have ended." : status[s.status];
+  btn.hidden = !s.open && s.status === "off";
+  btn.disabled = false;
+  btn.textContent = s.status === "off" ? "Turn on" : s.status === "pending" ? "Cancel" : "Turn off";
+  btn.className = `btn${s.status === "off" ? " primary" : ""}`;
+  if (s.status === "off" && !s.email) {
+    $("notify-status").textContent = "Your sign-in has no email address, so summaries can't be sent.";
+    btn.hidden = true;
+  }
+  $("notify-btn").classList.toggle("on", s.status === "active");
+}
+
+async function openNotify() {
+  $("notify").hidden = false;
+  $("notify-status").textContent = "Loading…";
+  $<HTMLButtonElement>("notify-toggle").hidden = true;
+  try {
+    const res = await api("/api/notify");
+    if (!res.ok) throw new Error();
+    notifyState = (await res.json()) as NotifyState;
+    renderNotify();
+  } catch {
+    $("notify-status").textContent = "Could not load your settings. Try again.";
+  }
+}
+
+async function toggleNotify() {
+  if (!notifyState) return;
+  const on = notifyState.status === "off";
+  const btn = $<HTMLButtonElement>("notify-toggle");
+  btn.disabled = true;
+  try {
+    const res = await api("/api/notify", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ on }) });
+    const body: any = await res.json();
+    if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
+    notifyState = body as NotifyState;
+    renderNotify();
+    toast(on ? "Confirmation email sent" : "Summaries turned off");
+  } catch (e) {
+    btn.disabled = false;
+    toast((e as Error).message || "Could not save. Try again.");
+  }
+}
+
 async function main() {
   wire();
+  $("notify-btn").addEventListener("click", openNotify);
+  $("notify-toggle").addEventListener("click", toggleNotify);
+  $("notify-close").addEventListener("click", () => ($("notify").hidden = true));
+  $("notify").addEventListener("click", (e) => { if (e.target === $("notify")) $("notify").hidden = true; });
   $("share").addEventListener("click", openExport);
   $("notice-ok").addEventListener("click", () => ($("notice").hidden = true));
   $("export-copy").addEventListener("click", copyExportLink);

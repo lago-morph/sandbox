@@ -24,10 +24,12 @@ export interface Session {
   slidesUrl: string;
   /** https link to the recording, or "". */
   recordingUrl: string;
+  /** Every https link for the session, keyed by kind (see LINK_KINDS in importer.ts). */
+  links: Record<string, string>;
 }
 
 /** List view: everything except description and the structured speakers. */
-export type SessionSummary = Omit<Session, "description" | "speakers" | "slidesUrl" | "recordingUrl">;
+export type SessionSummary = Omit<Session, "description" | "speakers" | "slidesUrl" | "recordingUrl" | "links">;
 
 export interface Env {
   DB: D1Database;
@@ -39,4 +41,12 @@ export interface Env {
   ALLOWED_EMAILS?: string;
   GOOGLE_APP_ID: string;
   GOOGLE_APP_SECRET: string;
+  /** Email Service send binding (restricted to the planner sender address in wrangler.jsonc). */
+  EMAIL: SendEmail;
+  /** Public origin of the app, for links in emails sent from the nightly job. */
+  APP_ORIGIN: string;
+  /** Owner's contact address shown in emails (secret; kept out of the public repo). */
+  CONTACT_EMAIL?: string;
+  /** Verified destination that mail to *@shareplay.com is forwarded to (secret). */
+  FORWARD_TO?: string;
 }

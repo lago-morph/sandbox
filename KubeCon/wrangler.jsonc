@@ -8,7 +8,7 @@
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
-    "run_worker_first": ["/api/*", "/auth/*", "/admin", "/export/*"]
+    "run_worker_first": ["/api/*", "/auth/*", "/admin", "/export/*", "/notify/*"]
   },
   "d1_databases": [
     {
@@ -20,10 +20,13 @@
   ],
   "vars": {
     "OAUTH_CLIENT_ID": "eb7ddd2a8912ec6fe245dc7ac2fabf31",
-    "ALLOWED_EMAILS": ""
+    "ALLOWED_EMAILS": "",
+    "APP_ORIGIN": "https://kubecon-planner.cloud-app-asdf.workers.dev"
   },
   "observability": { "enabled": true },
-  // No scheduled refresh: the schedule is refreshed only with "Refresh schedule".
-  // An empty list removes any cron triggers left from earlier deploys.
-  "triggers": { "crons": [] }
+  // Nightly at 06:00 UTC = midnight Central (CST): refresh the schedule and send email summaries.
+  // src/summaries.ts limits runs to 7 nights (Central dates 2026-11-13 to 2026-11-19).
+  "triggers": { "crons": ["0 6 * * *"] },
+  // Email Service binding; may only send from the planner address on shareplay.com.
+  "send_email": [{ "name": "EMAIL", "allowed_sender_addresses": ["planner@shareplay.com"] }]
 }
