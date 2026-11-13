@@ -577,12 +577,14 @@ async function showNotices() {
   try {
     const res = await api("/api/notices");
     if (!res.ok) return;
-    const [n] = (await res.json()) as { id: string; title: string; text: string }[];
-    if (!n) return;
-    $("notice-title").textContent = n.title;
-    $("notice-text").textContent = n.text;
+    const notices = (await res.json()) as { id: string; title: string; text: string }[];
+    if (!notices.length) return;
+    // All unseen notices go in one box, each as its own paragraph.
+    $("notice-title").textContent = notices[0].title;
+    const box = $("notice-text");
+    box.replaceChildren(...notices.map((n) => Object.assign(document.createElement("p"), { textContent: n.text })));
     $("notice").hidden = false;
-    await api(`/api/notices/${encodeURIComponent(n.id)}/seen`, { method: "POST" });
+    for (const n of notices) await api(`/api/notices/${encodeURIComponent(n.id)}/seen`, { method: "POST" });
   } catch {
     // Notices are optional.
   }

@@ -7,6 +7,8 @@ export interface Notice {
   id: string;
   /** Unix ms: users active before this are "returning" and get the notice. */
   since: number;
+  /** Unix ms: not shown after this (optional). */
+  until?: number;
   title: string;
   text: string;
 }
@@ -17,6 +19,14 @@ export const NOTICES: Notice[] = [
     since: Date.parse("2026-11-12T23:50:00Z"),
     title: "What's new",
     text: "You can now download your ★ favorite and ✓ interested sessions, with full Sessionize details. Tap the share icon at the top to get a download link.",
+  },
+  {
+    id: "email-summaries",
+    // Released with the bell button; offered only while summaries can still be turned on.
+    since: Date.parse("2026-11-13T00:30:00Z"),
+    until: Date.parse("2026-11-19T06:00:00Z"),
+    title: "What's new",
+    text: "Tap the bell at the top to get an email after midnight Central time whenever your ★ favorite or ✓ interested sessions get new slides or video links. For the next 7 days only, and only on nights something changes.",
   },
 ];
 
@@ -30,6 +40,7 @@ export const MARK_NOTICE_SEEN_SQL = "INSERT OR IGNORE INTO notices_seen (user_id
 export async function unseenNotices(db: D1Database, userId: string): Promise<Pick<Notice, "id" | "title" | "text">[]> {
   const out: Pick<Notice, "id" | "title" | "text">[] = [];
   for (const n of NOTICES) {
+    if (n.until !== undefined && Date.now() >= n.until) continue;
     const r = await db.prepare(UNSEEN_NOTICE_SQL).bind(userId, n.id, n.since, new Date(n.since).toISOString()).first<{ show: number }>();
     if (r?.show) out.push({ id: n.id, title: n.title, text: n.text });
   }
