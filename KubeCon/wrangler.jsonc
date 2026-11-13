@@ -8,7 +8,7 @@
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
-    "run_worker_first": ["/api/*", "/auth/*", "/admin"]
+    "run_worker_first": ["/api/*", "/auth/*", "/admin", "/export/*", "/notify/*"]
   },
   "d1_databases": [
     {
@@ -20,10 +20,13 @@
   ],
   "vars": {
     "OAUTH_CLIENT_ID": "eb7ddd2a8912ec6fe245dc7ac2fabf31",
-    "ALLOWED_EMAILS": ""
+    "ALLOWED_EMAILS": "",
+    "APP_ORIGIN": "https://kubecon-planner.cloud-app-asdf.workers.dev"
   },
   "observability": { "enabled": true },
-  // Auto-refresh the schedule every 2 hours from 06:00 to 16:00 Salt Lake City time (MST = UTC-7)
-  // on 8-12 November. src/scheduled.ts also limits runs to the 2026 conference days.
-  "triggers": { "crons": ["0 13-23/2 8-12 11 *"] }
+  // Nightly at 06:00 UTC = midnight Central (CST): refresh the schedule and send email summaries.
+  // src/summaries.ts limits runs to 7 nights (Central dates 2026-11-13 to 2026-11-19).
+  "triggers": { "crons": ["0 6 * * *"] },
+  // Email Service binding; may only send from the planner address on shareplay.com.
+  "send_email": [{ "name": "EMAIL", "allowed_sender_addresses": ["planner@shareplay.com"] }]
 }

@@ -88,6 +88,8 @@ describe("parseFeed", () => {
     expect(find(parseFeed("main", main), "102")).toMatchObject({ slidesUrl: "", recordingUrl: "" });
     const bad = find(parseFeed("colocated", colocated), "200");
     expect(bad).toMatchObject({ slidesUrl: "", recordingUrl: "" });
+    expect(s.links).toEqual({ Slides: "https://sessionize.com/download/abc~slides.pdf", Recording: "https://www.youtube.com/watch?v=abc" });
+    expect(bad.links).toEqual({});
   });
 
   it("throws naming the feed on malformed JSON", () => {

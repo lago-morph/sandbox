@@ -14,6 +14,32 @@ const FETCH_TIMEOUT_MS = 20_000;
 /** Sessionize local wall-clock time, e.g. 2026-11-09T09:30:00 (no offset). */
 const LOCAL_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/;
 
+/** Session question titles that hold links, and the kind they are reported as. */
+const LINK_QUESTIONS: [string, string][] = [
+  ["Presentation Slides", "Slides"],
+  ["GitHub Repository", "GitHub"],
+  ["Project Demo", "Demo"],
+  ["Website", "Website"],
+];
+/** Fixed order of link kinds, so stored JSON is stable and comparable. */
+export const LINK_KINDS = ["Slides", "Recording", "Live stream", "GitHub", "Demo", "Website"];
+
+/** All https links for a session: question answers plus recordingUrl and liveUrl. */
+function sessionLinks(s: any, linkQs: (readonly [string | undefined, string])[]): Record<string, string> {
+  const found: Record<string, string> = {};
+  for (const [q, kind] of linkQs) {
+    const v = httpsUrl((s.questionAnswers ?? []).find((a: any) => String(a?.questionId) === q)?.answerValue);
+    if (v) found[kind] = v;
+  }
+  const rec = httpsUrl(s.recordingUrl);
+  if (rec) found["Recording"] = rec;
+  const live = httpsUrl(s.liveUrl);
+  if (live) found["Live stream"] = live;
+  const out: Record<string, string> = {};
+  for (const k of LINK_KINDS) if (found[k]) out[k] = found[k];
+  return out;
+}
+
 /** The value if it is an absolute https URL (so it is safe to use as a link), else "". */
 export function httpsUrl(v: unknown): string {
   if (typeof v !== "string") return "";
@@ -49,6 +75,7 @@ export function parseFeed(kind: FeedKind, data: unknown): Session[] {
   for (const q of d.questions) qByTitle.set(String(q.question ?? "").trim(), String(q.id));
   const companyQ = qByTitle.get("Company");
   const slidesQ = qByTitle.get("Presentation Slides");
+  const linkQs = LINK_QUESTIONS.map(([title, kind]) => [qByTitle.get(title), kind] as const).filter(([q]) => q);
   const titleQ = qByTitle.get("Speaker Title");
 
   const speakers = new Map<string, Speaker>();
@@ -126,6 +153,7 @@ export function parseFeed(kind: FeedKind, data: unknown): Session[] {
         slidesQ ? (s.questionAnswers ?? []).find((a: any) => String(a?.questionId) === slidesQ)?.answerValue : undefined,
       ),
       recordingUrl: httpsUrl(s.recordingUrl),
+      links: sessionLinks(s, linkQs),
     });
   }
   return out;
@@ -190,7 +218,7 @@ export interface ImportResult {
 
 const COLS = [
   "id", "source", "title", "description", "day", "starts_at", "ends_at",
-  "room", "track", "format", "events", "speakers", "speaker_text", "slides_url", "recording_url",
+  "room", "track", "format", "events", "speakers", "speaker_text", "slides_url", "recording_url", "links",
 ] as const;
 
 export const UPSERT_SQL =
@@ -204,6 +232,7 @@ function toRow(s: Session): (string | null)[] {
   return [
     s.id, s.source, s.title, s.description, s.day, s.startsAt, s.endsAt, s.room, s.track,
     s.format, JSON.stringify(s.events), JSON.stringify(s.speakers), s.speakerText, s.slidesUrl, s.recordingUrl,
+    JSON.stringify(s.links),
   ];
 }
 

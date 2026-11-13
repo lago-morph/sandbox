@@ -1,7 +1,10 @@
 import { callback, currentUser, login, logout } from "./auth";
 import { runImport } from "./importer";
 import { adminPage } from "./admin";
-import { scheduledRefresh } from "./scheduled";
+import { createExportLink, exportDownload } from "./export";
+import { markNoticeSeen, unseenNotices } from "./notices";
+import { nightly, notifyLinkPage, notifyState, SEED_SNAPSHOT_SQL, setNotify } from "./summaries";
+import { handleInbound } from "./inbound";
 import { touchUser } from "./usage";
 import { googleCallback, googleLogin } from "./google";
 import type { Env } from "./types";
@@ -122,6 +125,32 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
   // Activity ping from the client (activity was recorded above). Who and when only.
   if (path === "/api/ping" && req.method === "POST") return new Response(null, { status: 204 });
 
+  // Short-lived download link for this user's favorite and interested sessions (src/export.ts).
+  if (path === "/api/export" && req.method === "POST") return json(await createExportLink(env, url.origin, user.uid));
+
+  // Nightly email summaries opt in/out (src/summaries.ts).
+  if (path === "/api/notify" && req.method === "GET") return json(await notifyState(env, user.uid, user.email));
+  if (path === "/api/notify" && req.method === "POST") {
+    const text = await readSmallBody(req);
+    if (text === null) return json({ error: "request body too large" }, 413);
+    let on: unknown;
+    try {
+      on = (JSON.parse(text || "{}") as { on?: unknown }).on;
+    } catch {
+      return json({ error: "invalid JSON body" }, 400);
+    }
+    if (typeof on !== "boolean") return json({ error: "on must be true or false" }, 400);
+    const r = await setNotify(env, user.uid, user.email, on);
+    return json(r.body, r.status);
+  }
+
+  // "What's new" notices: each shown exactly once per user (src/notices.ts).
+  if (path === "/api/notices" && req.method === "GET") return json(await unseenNotices(env.DB, user.uid));
+  const seen = path.match(/^\/api\/notices\/([a-z0-9-]{1,40})\/seen$/);
+  if (seen && req.method === "POST") {
+    return (await markNoticeSeen(env.DB, user.uid, seen[1])) ? new Response(null, { status: 204 }) : json({ error: "not found" }, 404);
+  }
+
   if (path === "/api/me" && req.method === "GET") {
     return json({ userId: user.uid, email: user.email, provider: user.prov ?? "cloudflare" });
   }
@@ -199,6 +228,12 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
       const exists = await env.DB.prepare("SELECT 1 AS x FROM sessions WHERE id = ?").bind(id).first();
       if (!exists) return json({ error: "unknown session" }, 404);
       await env.DB.prepare(UPSERT_SELECTION_SQL).bind(user.uid, id, status, new Date().toISOString()).run();
+      // For email-summary subscribers, a newly selected session's current state is its baseline.
+      try {
+        await env.DB.prepare(SEED_SNAPSHOT_SQL).bind(user.uid, id).run();
+      } catch (e) {
+        console.error("seed snapshot failed", (e as Error).message);
+      }
       return new Response(null, { status: 204 });
     }
     if (req.method === "DELETE") {
@@ -214,9 +249,18 @@ export default {
   async fetch(req: Request, env: Env): Promise<Response> {
     return withSecurityHeaders(await route(req, env));
   },
-  /** Automatic schedule refresh; see src/scheduled.ts. The outcome goes to Workers Logs. */
+  /** Nightly refresh + email summaries on the 7 summary nights (src/summaries.ts). */
   async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
-    ctx.waitUntil(scheduledRefresh(controller.scheduledTime, env).then((msg) => console.log(`scheduled refresh ${msg}`)));
+    ctx.waitUntil(
+      nightly(controller.scheduledTime, env)
+        .then((msg) => console.log(`nightly: ${msg}`))
+        .catch((e) => console.error("nightly failed", (e as Error).message)),
+    );
+  },
+  /** Mail to *@shareplay.com (Email Routing catch-all; src/inbound.ts). */
+  async email(message: ForwardableEmailMessage, env: Env): Promise<void> {
+    const outcome = await handleInbound(message, env);
+    console.log(`inbound email: ${outcome}`);
   },
 } satisfies ExportedHandler<Env>;
 
@@ -225,6 +269,12 @@ async function route(req: Request, env: Env): Promise<Response> {
     const url = new URL(req.url);
     if (url.pathname.startsWith("/api/")) return handleApi(req, env, url);
     if (url.pathname === "/admin" && req.method === "GET") return adminPage(req, env);
+    const exp = url.pathname.match(/^\/export\/([A-Za-z0-9_.-]+)$/);
+    if (exp && req.method === "GET") return exportDownload(exp[1], env);
+    if (url.pathname.startsWith("/export/")) return new Response("Not found", { status: 404 });
+    const nl = url.pathname.match(/^\/notify\/(confirm|unsubscribe)\/([A-Za-z0-9_.-]+)$/);
+    if (nl) return notifyLinkPage(req, env, nl[1] as "confirm" | "unsubscribe", nl[2]);
+    if (url.pathname.startsWith("/notify/")) return new Response("Not found", { status: 404 });
     if (url.pathname === "/auth/login" && req.method === "GET") return login(req, env);
     if (url.pathname === "/auth/callback" && req.method === "GET") return callback(req, env);
     if (url.pathname === "/auth/google/login" && req.method === "GET") return googleLogin(req, env);

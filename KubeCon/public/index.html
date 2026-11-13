@@ -11,6 +11,8 @@
   <header class="top">
     <div class="brand">KubeCon NA 2026 planner</div>
     <div class="who" id="who" hidden>
+      <button id="share" class="icon-btn" type="button" aria-label="Download my sessions" title="Download my sessions"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><path d="M12 3v12M7.5 7.5 12 3l4.5 4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 10H6.5A1.5 1.5 0 0 0 5 11.5v8A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5v-8a1.5 1.5 0 0 0-1.5-1.5H16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+      <button id="notify-btn" class="icon-btn" type="button" aria-label="Email summaries" title="Email summaries"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><path d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M10 20.5a2 2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
       <span id="email"></span>
       <a href="/auth/logout" class="link">Sign out</a>
     </div>
@@ -72,6 +74,33 @@
         <button id="tracks-clear" class="btn" type="button">Show all tracks</button>
         <button id="tracks-done" class="btn primary" type="button">Done</button>
       </p>
+    </div>
+  </div>
+  <div id="notice" class="notice" role="status" hidden>
+    <strong id="notice-title"></strong>
+    <div id="notice-text"></div>
+    <button id="notice-ok" class="btn primary" type="button">Got it</button>
+  </div>
+  <div id="notify" class="sheet notify-sheet" hidden>
+    <div class="sheet-inner" role="dialog" aria-modal="true" aria-labelledby="notify-title">
+      <button id="notify-close" class="btn close" type="button" aria-label="Close">✕</button>
+      <h2 id="notify-title">Nightly email summaries</h2>
+      <p>Get an email after midnight Central time when something changes in your ★ favorite or ✓ interested sessions, especially new or updated slide and video links.</p>
+      <p class="meta">Summaries come for the next 7 days only (the last one is <span id="notify-last"></span>), and only on nights when your selections change. Turning them on sends a confirmation email first.</p>
+      <p id="notify-status" class="notify-status"></p>
+      <p class="sheet-actions"><button id="notify-toggle" class="btn primary" type="button"></button></p>
+    </div>
+  </div>
+  <div id="export" class="sheet export-sheet" hidden>
+    <div class="sheet-inner" role="dialog" aria-modal="true" aria-labelledby="export-title">
+      <button id="export-close" class="btn close" type="button" aria-label="Close">✕</button>
+      <h2 id="export-title">Download my sessions</h2>
+      <p class="meta">A JSON file of your ★ favorite and ✓ interested sessions with everything Sessionize publishes about them, fetched fresh when the link is opened. Anyone with the link can download it until it expires.</p>
+      <div class="copy-row">
+        <input id="export-url" type="text" readonly aria-label="Download link">
+        <button id="export-copy" class="icon-btn copy" type="button" aria-label="Copy link" title="Copy link"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><rect x="9" y="9" width="11" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M5 15H4.5A1.5 1.5 0 0 1 3 13.5v-9A1.5 1.5 0 0 1 4.5 3h9A1.5 1.5 0 0 1 15 4.5V5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+      </div>
+      <p class="meta" id="export-expiry"></p>
     </div>
   </div>
   <div id="toast" class="toast" hidden></div>

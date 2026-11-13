@@ -445,8 +445,109 @@ function wireActivity() {
   });
 }
 
+/** Share button: create a 5-minute download link for this user's marked sessions. */
+async function openExport() {
+  const input = $<HTMLInputElement>("export-url");
+  input.value = "Creating link…";
+  $("export-expiry").textContent = "";
+  $("export").hidden = false;
+  try {
+    const res = await api("/api/export", { method: "POST" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const { url, expiresAt } = (await res.json()) as { url: string; expiresAt: string };
+    input.value = url;
+    const t = new Intl.DateTimeFormat("en-US", { timeZone: "America/Denver", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(expiresAt));
+    $("export-expiry").textContent = `Valid for 5 minutes, until ${t} Salt Lake City time.`;
+  } catch {
+    input.value = "";
+    $("export-expiry").textContent = "Could not create a link. Check your connection and try again.";
+  }
+}
+
+async function copyExportLink() {
+  const input = $<HTMLInputElement>("export-url");
+  if (!/^https:\/\//.test(input.value)) return;
+  try {
+    await navigator.clipboard.writeText(input.value);
+  } catch {
+    input.focus();
+    input.select();
+    input.setSelectionRange(0, input.value.length);
+    document.execCommand("copy");
+  }
+  toast("Link copied");
+}
+
+/** Bell button: opt in or out of nightly email summaries. */
+interface NotifyState { status: "off" | "pending" | "active"; email: string; open: boolean; lastRun: string }
+let notifyState: NotifyState | null = null;
+
+function renderNotify() {
+  const s = notifyState;
+  const btn = $<HTMLButtonElement>("notify-toggle");
+  if (!s) return;
+  $("notify-last").textContent = s.lastRun;
+  const who = s.email ? ` (${s.email})` : "";
+  const status: Record<NotifyState["status"], string> = {
+    off: "Summaries are off.",
+    pending: `Check your inbox${who}: confirm the email we sent to turn summaries on.`,
+    active: `Summaries are on${who}.`,
+  };
+  $("notify-status").textContent = !s.open && s.status !== "active" ? "Nightly summaries have ended." : status[s.status];
+  btn.hidden = !s.open && s.status === "off";
+  btn.disabled = false;
+  btn.textContent = s.status === "off" ? "Turn on" : s.status === "pending" ? "Cancel" : "Turn off";
+  btn.className = `btn${s.status === "off" ? " primary" : ""}`;
+  if (s.status === "off" && !s.email) {
+    $("notify-status").textContent = "Your sign-in has no email address, so summaries can't be sent.";
+    btn.hidden = true;
+  }
+  $("notify-btn").classList.toggle("on", s.status === "active");
+}
+
+async function openNotify() {
+  $("notify").hidden = false;
+  $("notify-status").textContent = "Loading…";
+  $<HTMLButtonElement>("notify-toggle").hidden = true;
+  try {
+    const res = await api("/api/notify");
+    if (!res.ok) throw new Error();
+    notifyState = (await res.json()) as NotifyState;
+    renderNotify();
+  } catch {
+    $("notify-status").textContent = "Could not load your settings. Try again.";
+  }
+}
+
+async function toggleNotify() {
+  if (!notifyState) return;
+  const on = notifyState.status === "off";
+  const btn = $<HTMLButtonElement>("notify-toggle");
+  btn.disabled = true;
+  try {
+    const res = await api("/api/notify", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ on }) });
+    const body: any = await res.json();
+    if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
+    notifyState = body as NotifyState;
+    renderNotify();
+    toast(on ? "Confirmation email sent" : "Summaries turned off");
+  } catch (e) {
+    btn.disabled = false;
+    toast((e as Error).message || "Could not save. Try again.");
+  }
+}
+
 async function main() {
   wire();
+  $("notify-btn").addEventListener("click", openNotify);
+  $("notify-toggle").addEventListener("click", toggleNotify);
+  $("notify-close").addEventListener("click", () => ($("notify").hidden = true));
+  $("notify").addEventListener("click", (e) => { if (e.target === $("notify")) $("notify").hidden = true; });
+  $("share").addEventListener("click", openExport);
+  $("notice-ok").addEventListener("click", () => ($("notice").hidden = true));
+  $("export-copy").addEventListener("click", copyExportLink);
+  $("export-close").addEventListener("click", () => ($("export").hidden = true));
+  $("export").addEventListener("click", (e) => { if (e.target === $("export")) $("export").hidden = true; });
   let me: { email: string };
   try {
     const res = await fetch("/api/me", { credentials: "same-origin" });
@@ -465,6 +566,28 @@ async function main() {
     marks = new Map(rows.map((r) => [r.id, r.status]));
   }
   render();
+  showNotices();
+}
+
+/**
+ * "What's new": show the first unseen notice, and record it as seen as soon as it is shown,
+ * so each user sees it exactly once (on whichever device they open next).
+ */
+async function showNotices() {
+  try {
+    const res = await api("/api/notices");
+    if (!res.ok) return;
+    const notices = (await res.json()) as { id: string; title: string; text: string }[];
+    if (!notices.length) return;
+    // All unseen notices go in one box, each as its own paragraph.
+    $("notice-title").textContent = notices[0].title;
+    const box = $("notice-text");
+    box.replaceChildren(...notices.map((n) => Object.assign(document.createElement("p"), { textContent: n.text })));
+    $("notice").hidden = false;
+    for (const n of notices) await api(`/api/notices/${encodeURIComponent(n.id)}/seen`, { method: "POST" });
+  } catch {
+    // Notices are optional.
+  }
 }
 
 main();

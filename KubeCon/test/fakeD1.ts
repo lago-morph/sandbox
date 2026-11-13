@@ -1,8 +1,9 @@
 import { DELETE_SQL, META_SQL, SELECT_ALL_SQL, UPSERT_SQL } from "../src/importer";
 import { UPSERT_SELECTION_SQL } from "../src/index";
 import { LOG_ACTIVITY_SQL, TOUCH_USER_SQL } from "../src/usage";
+import { SEED_SNAPSHOT_SQL } from "../src/summaries";
 
-const COLS = ["id", "source", "title", "description", "day", "starts_at", "ends_at", "room", "track", "format", "events", "speakers", "speaker_text", "slides_url", "recording_url"];
+const COLS = ["id", "source", "title", "description", "day", "starts_at", "ends_at", "room", "track", "format", "events", "speakers", "speaker_text", "slides_url", "recording_url", "links"];
 
 /** Minimal in-memory stand-in for the D1 statements the importer and API use. */
 export class FakeD1 {
@@ -32,7 +33,7 @@ export class FakeD1 {
         if (sql === UPSERT_SQL) db.sessions.set(String(args[0]), Object.fromEntries(COLS.map((c, i) => [c, args[i]])));
         else if (sql === DELETE_SQL) db.sessions.delete(String(args[0]));
         else if (sql === META_SQL) db.meta.set(String(args[0]), String(args[1]));
-        else if (sql === TOUCH_USER_SQL || sql === LOG_ACTIVITY_SQL) {
+        else if (sql === TOUCH_USER_SQL || sql === LOG_ACTIVITY_SQL || sql === SEED_SNAPSHOT_SQL) {
           // Usage tracking is tested against real SQLite in usage.test.ts.
         } else if (sql === UPSERT_SELECTION_SQL) {
           const k = `${args[0]}|${args[1]}`;
